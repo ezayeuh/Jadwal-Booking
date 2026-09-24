@@ -47,7 +47,7 @@ if 'temp_dates' not in st.session_state:
     st.session_state.temp_dates = []
 
 st.title("🔒 Portal Khusus Staf")
-st.caption("Masukan password staf untuk menambah atau menghapus jadwal kunjungan.")
+st.caption("Masukan password staf untuk menambah, mengimpor, atau mengelola jadwal.")
 
 password = st.text_input("Password Staf:", type="password")
 
@@ -57,10 +57,10 @@ if password == "staf123":
     
     jadwal_kunjungan = load_data()
     
-    col_input, col_manage = st.columns([1, 1], gap="large")
+    col_input, col_manage = st.columns([1, 1.1], gap="large")
     
     with col_input:
-        st.subheader("➕ Input Kunjungan Baru")
+        st.subheader("➕ Input Kunjungan")
         
         tab_manual, tab_excel = st.tabs(["📝 Form Manual", "📊 Import Excel / CSV"])
         
@@ -117,6 +117,9 @@ if password == "staf123":
 
                 if submit_btn:
                     if sekolah_in and pic_in:
+                        updated_count = 0
+                        added_count = 0
+                        
                         if tipe_kunjungan == "Pilih Bebas Beberapa Tanggal":
                             if not selected_dates_final:
                                 st.error("⚠️ Pilih minimal 1 tanggal terlebih dahulu!")
@@ -134,10 +137,24 @@ if password == "staf123":
                                         "KETERANGAN": ket_in,
                                         "KATEGORI": kategori_in
                                     }
-                                    jadwal_kunjungan.append(entry)
+                                    
+                                    # LOGIKA UPDATE/REPLACE
+                                    match_idx = -1
+                                    for idx_e, existing in enumerate(jadwal_kunjungan):
+                                        if existing.get("SEKOLAH").lower() == sekolah_in.lower() and existing.get("TANGGAL_DATE") == d:
+                                            match_idx = idx_e
+                                            break
+                                            
+                                    if match_idx >= 0:
+                                        jadwal_kunjungan[match_idx] = entry
+                                        updated_count += 1
+                                    else:
+                                        jadwal_kunjungan.append(entry)
+                                        added_count += 1
+                                        
                                 save_data(jadwal_kunjungan)
                                 st.session_state.temp_dates = []
-                                st.success("✅ Jadwal kunjungan berhasil disimpan!")
+                                st.success(f"✅ Berhasil! Added: {added_count}, Updated: {updated_count}")
                                 st.rerun()
                         else:
                             tgl_text = f"Setiap {', '.join(hari_rutin_selected)}"
@@ -154,16 +171,27 @@ if password == "staf123":
                                 "KETERANGAN": ket_in,
                                 "KATEGORI": kategori_in
                             }
-                            jadwal_kunjungan.append(entry)
+                            
+                            match_idx = -1
+                            for idx_e, existing in enumerate(jadwal_kunjungan):
+                                if existing.get("SEKOLAH").lower() == sekolah_in.lower() and existing.get("TIPE") == "Hari Rutin / Berulang":
+                                    match_idx = idx_e
+                                    break
+                                    
+                            if match_idx >= 0:
+                                jadwal_kunjungan[match_idx] = entry
+                            else:
+                                jadwal_kunjungan.append(entry)
+                                
                             save_data(jadwal_kunjungan)
-                            st.success("✅ Jadwal kunjungan berhasil disimpan!")
+                            st.success("✅ Jadwal rutin berhasil disimpan/diperbarui!")
                             st.rerun()
                     else:
                         st.error("⚠️ Nama Sekolah/Grup & PIC wajib diisi!")
 
         # --- TAB 2: IMPORT VIA EXCEL / CSV ---
         with tab_excel:
-            st.caption("Unggah file Excel (.xlsx / .xls) atau CSV (.csv) berisi data jadwal kunjungan.")
+            st.caption("Unggah file Excel (.xlsx / .xls) atau CSV (.csv). Data lama dengan sekolah & tanggal sama akan otomatis diperbarui.")
             
             uploaded_file = st.file_uploader("Pilih File Excel/CSV:", type=["xlsx", "xls", "csv"])
             
@@ -177,8 +205,9 @@ if password == "staf123":
                     st.write("**Pratinjau Data:**")
                     st.dataframe(df_excel, use_container_width=True)
                     
-                    if st.button("📥 Import Semua Data Dari File", use_container_width=True):
-                        count_success = 0
+                    if st.button("📥 Import & Perbarui Data", use_container_width=True):
+                        count_added = 0
+                        count_updated = 0
                         hari_names_list = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
                         
                         for _, row in df_excel.iterrows():
@@ -201,7 +230,8 @@ if password == "staf123":
                                 if isinstance(tgl_val, (pd.Timestamp, datetime, date)):
                                     tgl_parsed = tgl_val.date() if isinstance(tgl_val, (pd.Timestamp, datetime)) else tgl_val
                                 else:
-                                    tgl_parsed = datetime.strptime(str(tgl_val).strip(), "%Y-%m-%d").date()
+                                    tgl_str = str(tgl_val).split(" ")[0].strip()
+                                    tgl_parsed = datetime.strptime(tgl_str, "%Y-%m-%d").date()
                                 
                                 tgl_text_val = f"{hari_map[tgl_parsed.weekday()]}, {tgl_parsed.day:02d} {bln_map[tgl_parsed.month]} {tgl_parsed.year}"
                             except Exception:
@@ -221,42 +251,79 @@ if password == "staf123":
                                 "KETERANGAN": ket_val,
                                 "KATEGORI": kategori_val
                             }
-                            jadwal_kunjungan.append(entry)
-                            count_success += 1
+                            
+                            # PEMBARUAN OTOMATIS (UPDATE/REPLACE LOGIC)
+                            match_index = -1
+                            for idx_exist, exist_item in enumerate(jadwal_kunjungan):
+                                same_school = exist_item.get("SEKOLAH", "").lower() == sekolah_val.lower()
+                                same_date = (exist_item.get("TANGGAL_DATE") == tgl_parsed) if tgl_parsed else (exist_item.get("TANGGAL_TEXT") == tgl_text_val)
+                                
+                                if same_school and same_date:
+                                    match_index = idx_exist
+                                    break
+                            
+                            if match_index >= 0:
+                                jadwal_kunjungan[match_index] = entry
+                                count_updated += 1
+                            else:
+                                jadwal_kunjungan.append(entry)
+                                count_added += 1
                             
                         save_data(jadwal_kunjungan)
-                        st.success(f"✅ Berhasil mengimpor {count_success} jadwal!")
+                        st.success(f"✅ Impor Selesai! Data Baru: {count_added} | Data Diperbarui: {count_updated}")
                         st.rerun()
                 except Exception as e:
                     st.error(f"Gagal membaca file. Pastikan format kolom sesuai. Error: {e}")
 
-    # --- KOLOM KANAN: HAPUS/KELOLA JADWAL ---
+    # --- KOLOM KANAN: KELOLA & TABEL JADWAL ---
     with col_manage:
-        st.subheader("🗑️ Kelola & Hapus Jadwal")
+        st.subheader("📋 Daftar Jadwal Tersimpan")
+        
         if not jadwal_kunjungan:
             st.info("Belum ada jadwal yang terdaftar.")
         else:
-            jadwal_to_delete = None
-            for idx, item in enumerate(jadwal_kunjungan):
-                c_info, c_del = st.columns([3, 1])
-                with c_info:
-                    st.markdown(f"**{item['SEKOLAH']}** ({item['KATEGORI']})\n\n📅 {item['TANGGAL_TEXT']} | 👥 {item['JUMLAH']}")
-                with c_del:
-                    if st.button("❌ Hapus", key=f"del_{idx}"):
-                        jadwal_to_delete = idx
-                st.markdown("<hr style='margin:6px 0;'/>", unsafe_allow_html=True)
+            # Mengurutkan jadwal berdasarkan tanggal
+            jadwal_sorted = sorted(
+                jadwal_kunjungan,
+                key=lambda x: x.get("TANGGAL_DATE") if x.get("TANGGAL_DATE") else date(2099, 12, 31)
+            )
             
-            if jadwal_to_delete is not None:
-                removed_item = jadwal_kunjungan.pop(jadwal_to_delete)
-                save_data(jadwal_kunjungan)
-                st.success(f"Jadwal '{removed_item['SEKOLAH']}' berhasil dihapus!")
-                st.rerun()
-
-            st.write("")
-            if st.button("🗑️ Hapus Semua Jadwal Terdaftar", type="secondary"):
-                save_data([])
-                st.success("Seluruh jadwal berhasil dihapus!")
-                st.rerun()
+            # Format Tabel Rapi
+            table_data = []
+            for item in jadwal_sorted:
+                table_data.append({
+                    "Tanggal": item.get("TANGGAL_TEXT", "-"),
+                    "Sekolah / Grup": item.get("SEKOLAH", "-"),
+                    "PIC": item.get("PIC", "-"),
+                    "Jumlah": item.get("JUMLAH", "-"),
+                    "Kategori": item.get("KATEGORI", "-"),
+                    "Keterangan": item.get("KETERANGAN", "-")
+                })
+            
+            df_display = pd.DataFrame(table_data)
+            st.dataframe(df_display, use_container_width=True, hide_index=True)
+            
+            st.markdown("---")
+            st.write("**🗑️ Hapus Jadwal Spesifik:**")
+            
+            options = [f"{item['SEKOLAH']} ({item['TANGGAL_TEXT']})" for item in jadwal_sorted]
+            selected_option = st.selectbox("Pilih Jadwal Yang Ingin Dihapus:", options)
+            
+            c_del1, c_del2 = st.columns([1, 1])
+            with c_del1:
+                if st.button("❌ Hapus Jadwal Terpilih", use_container_width=True):
+                    idx_del = options.index(selected_option)
+                    target_item = jadwal_sorted[idx_del]
+                    jadwal_kunjungan.remove(target_item)
+                    save_data(jadwal_kunjungan)
+                    st.success(f"Jadwal '{target_item['SEKOLAH']}' berhasil dihapus!")
+                    st.rerun()
+                    
+            with c_del2:
+                if st.button("🗑️ Hapus Semua Data", type="secondary", use_container_width=True):
+                    save_data([])
+                    st.success("Seluruh jadwal berhasil dihapus!")
+                    st.rerun()
 
 elif password:
     st.error("Password Salah!")
