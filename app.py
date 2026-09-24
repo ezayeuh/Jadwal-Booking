@@ -8,14 +8,22 @@ import os
 st.set_page_config(
     page_title="Dashboard Jadwal Kunjungan",
     page_icon="🏊‍♂️",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="collapsed"
 )
 
-# Sembunyikan Navigasi Sidebar bawaan Streamlit
+# SEMBUNYIKAN SIDEBAR DAN TOMBOL NAVIGASI DENGAN CSS
 st.markdown("""
 <style>
-    [data-testid="aria/Navigation"] {display: none;}
-    [data-testid="stSidebarNav"] {display: none;}
+    [data-testid="stSidebar"] {
+        display: none !important;
+    }
+    [data-testid="stSidebarCollapsedControl"] {
+        display: none !important;
+    }
+    [data-testid="stSidebarNav"] {
+        display: none !important;
+    }
     
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
     html, body, [class*="css"] {
@@ -103,7 +111,14 @@ st.markdown("""
 
 DB_FILE = "jadwal.json"
 
-# FUNGSI MEMBACA DATA PERMANEN
+def clean_text(value, default="-"):
+    if pd.isna(value) or value is None:
+        return default
+    val_str = str(value).strip()
+    if val_str == "" or val_str.lower() == "nan" or val_str.lower() == "none":
+        return default
+    return val_str
+
 def load_data():
     if os.path.exists(DB_FILE):
         try:
@@ -181,11 +196,11 @@ for idx, day_date in enumerate(week_days):
             for mb in matching:
                 badge_style = "cat-sekolah" if mb.get("KATEGORI") == "Sekolah" else ("cat-rutin" if mb.get("KATEGORI") == "Kegiatan Rutin" else "cat-umum")
                 cards_html += f"""<div class="visit-card">
-                    <div class="school-title">{mb['SEKOLAH']}</div>
-                    <div class="text-muted">👥 {mb['JUMLAH']}</div>
-                    <div class="text-muted">📞 {mb['PIC']}</div>
-                    <div class="text-muted">📌 {mb['KETERANGAN']}</div>
-                    <span class="cat-badge {badge_style}">{mb['KATEGORI']}</span>
+                    <div class="school-title">{clean_text(mb['SEKOLAH'])}</div>
+                    <div class="text-muted">👥 {clean_text(mb['JUMLAH'])}</div>
+                    <div class="text-muted">📞 {clean_text(mb['PIC'])}</div>
+                    <div class="text-muted">📌 {clean_text(mb['KETERANGAN'])}</div>
+                    <span class="cat-badge {badge_style}">{clean_text(mb['KATEGORI'])}</span>
                 </div>"""
         else:
             cards_html = '<div class="text-muted" style="text-align:center; margin-top:20px; font-style:italic;">Tidak Ada Kunjungan</div>'
