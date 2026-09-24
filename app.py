@@ -70,6 +70,7 @@ st.markdown("""
         border-bottom: 2px solid #38bdf8;
     }
     
+    /* Style Kartu Kunjungan sesuai template */
     .visit-card {
         background: #ffffff;
         border: 1px solid #cbd5e1;
@@ -81,7 +82,7 @@ st.markdown("""
     }
     
     .school-title { font-weight: 700; font-size: 0.9rem; color: #1e293b; line-height: 1.2; margin-bottom: 4px; }
-    .text-muted { color: #64748b; font-size: 0.78rem; }
+    .text-muted { color: #64748b; font-size: 0.78rem; margin-bottom: 2px; }
     
     .cat-badge {
         display: inline-block;
@@ -161,7 +162,7 @@ with st.sidebar:
                 bln_map = {1: "Jan", 2: "Feb", 3: "Mar", 4: "Apr", 5: "Mei", 6: "Jun", 7: "Jul", 8: "Agu", 9: "Sep", 10: "Okt", 11: "Nov", 12: "Des"}
 
                 if tipe_kunjungan == "Pilih Beberapa Tanggal":
-                    # Input tanggal bisa pilih rentang atau beberapa tanggal sekaligus
+                    # Menyarankan rentang tanggal/beberapa tanggal sekaligus
                     date_range = st.date_input("Pilih Tanggal (Bisa Pilih >1 Tanggal):", value=(date.today(), date.today()))
                     if isinstance(date_range, tuple) or isinstance(date_range, list):
                         selected_dates = list(date_range)
