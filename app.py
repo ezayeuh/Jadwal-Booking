@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta, date
+import json
+import os
 
 # 1. KONFIGURASI HALAMAN
 st.set_page_config(
@@ -9,6 +11,32 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+DB_FILE = "jadwal.json"
+
+# FUNGSI UNTUK MEMBACA DAN MENYIMPAN DATA DARI/KE FILE JSON
+def load_data():
+    if os.path.exists(DB_FILE):
+        try:
+            with open(DB_FILE, "r") as f:
+                data = json.load(f)
+                for item in data:
+                    if item.get("TANGGAL_DATE"):
+                        item["TANGGAL_DATE"] = date.fromisoformat(item["TANGGAL_DATE"])
+                return data
+        except Exception:
+            return []
+    return []
+
+def save_data(data):
+    data_to_save = []
+    for item in data:
+        item_copy = item.copy()
+        if isinstance(item_copy.get("TANGGAL_DATE"), date):
+            item_copy["TANGGAL_DATE"] = item_copy["TANGGAL_DATE"].isoformat()
+        data_to_save.append(item_copy)
+    with open(DB_FILE, "w") as f:
+        json.dump(data_to_save, f, indent=4)
 
 # 2. CUSTOM STYLING
 st.markdown("""
@@ -97,9 +125,9 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 3. DATABASE SEMENTARA (SESSION STATE)
+# 3. DATABASE SEMENTARA (LOAD DARI FILE PERMANEN)
 if 'jadwal_kunjungan' not in st.session_state:
-    st.session_state.jadwal_kunjungan = []
+    st.session_state.jadwal_kunjungan = load_data()
 
 if 'temp_dates' not in st.session_state:
     st.session_state.temp_dates = []
@@ -109,7 +137,7 @@ with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/3144/3144871.png", width=50)
     st.title("Akses Portal")
     
-    is_staff = st.checkbox("🔒 Login Mode Staf (Untuk Input)")
+    is_staff = st.checkbox("🔒 Login Mode Staf (Untuk Input/Hapus)")
     
     if is_staff:
         password = st.text_input("Password Staf:", type="password", value="staf123")
@@ -175,9 +203,8 @@ with st.sidebar:
                             else:
                                 for d in selected_dates_final:
                                     tgl_text = f"{hari_map[d.weekday()]}, {d.day:02d} {bln_map[d.month]} {d.year}"
-                                    new_id = len(st.session_state.jadwal_kunjungan) + 1
                                     entry = {
-                                        "NO": new_id,
+                                        "ID": f"{d.isoformat()}_{sekolah_in}",
                                         "TIPE": "Tanggal Spesifik",
                                         "TANGGAL_DATE": d,
                                         "HARI_RUTIN": [],
@@ -189,16 +216,16 @@ with st.sidebar:
                                         "KATEGORI": kategori_in
                                     }
                                     st.session_state.jadwal_kunjungan.append(entry)
+                                save_data(st.session_state.jadwal_kunjungan)
                                 st.session_state.temp_dates = []
-                                st.success("✅ Jadwal kunjungan berhasil ditambahkan!")
+                                st.success("✅ Jadwal kunjungan berhasil disimpan secara permanen!")
                                 st.rerun()
                         else:
                             tgl_text = f"Setiap {', '.join(hari_rutin_selected)}"
                             if catatan_rutin:
                                 tgl_text += f" ({catatan_rutin})"
-                            new_id = len(st.session_state.jadwal_kunjungan) + 1
                             entry = {
-                                "NO": new_id,
+                                "ID": f"rutin_{','.join(hari_rutin_selected)}_{sekolah_in}",
                                 "TIPE": "Hari Rutin / Berulang",
                                 "TANGGAL_DATE": None,
                                 "HARI_RUTIN": hari_rutin_selected,
@@ -210,21 +237,45 @@ with st.sidebar:
                                 "KATEGORI": kategori_in
                             }
                             st.session_state.jadwal_kunjungan.append(entry)
-                            st.success("✅ Jadwal kunjungan berhasil ditambahkan!")
+                            save_data(st.session_state.jadwal_kunjungan)
+                            st.success("✅ Jadwal kunjungan berhasil disimpan secara permanen!")
                             st.rerun()
                     else:
                         st.error("⚠️ Nama Sekolah/Grup & PIC wajib diisi!")
             
+            # --- MANAJEMEN HAPUS JADWAL ---
             if st.session_state.jadwal_kunjungan:
                 st.markdown("---")
+                st.subheader("🗑️ Hapus Jadwal Spesifik")
+                st.caption("Pilih jadwal di bawah untuk menghapusnya:")
+                
+                jadwal_to_delete = None
+                for idx, item in enumerate(st.session_state.jadwal_kunjungan):
+                    col_info, col_del = st.columns([3, 1])
+                    with col_info:
+                        label_item = f"**{item['SEKOLAH']}**\n\n📅 {item['TANGGAL_TEXT']}"
+                        st.markdown(label_item)
+                    with col_del:
+                        if st.button("❌", key=f"del_{idx}"):
+                            jadwal_to_delete = idx
+                    st.markdown("<hr style='margin:4px 0;'/>", unsafe_allow_html=True)
+                
+                if jadwal_to_delete is not None:
+                    removed_item = st.session_state.jadwal_kunjungan.pop(jadwal_to_delete)
+                    save_data(st.session_state.jadwal_kunjungan)
+                    st.success(f"Jadwal '{removed_item['SEKOLAH']}' berhasil dihapus!")
+                    st.rerun()
+
+                st.write("")
                 if st.button("🗑️ Hapus Semua Jadwal Terdaftar", type="secondary", use_container_width=True):
                     st.session_state.jadwal_kunjungan = []
+                    save_data([])
                     st.success("Seluruh jadwal berhasil dihapus!")
                     st.rerun()
         else:
             st.error("Password Salah!")
     else:
-        st.info("ℹ️ Tampilan Pengunjung (Read-Only). Centang 'Login Mode Staf' di atas untuk menginput data kunjungan.")
+        st.info("ℹ️ Tampilan Pengunjung (Read-Only). Centang 'Login Mode Staf' di atas untuk menginput/menghapus data kunjungan.")
 
 # 5. HERO HEADER
 st.markdown("""
@@ -249,7 +300,7 @@ with m3:
 
 st.write("")
 
-# 7. FILTER PERIODE MINGGU (Otomatis Menghitung Hari Senin)
+# 7. FILTER PERIODE MINGGU
 c_filter, c_blank = st.columns([2, 2])
 with c_filter:
     input_date = st.date_input("🗓️ Tampilkan Jadwal Minggu Dari Tanggal:", value=date.today())
