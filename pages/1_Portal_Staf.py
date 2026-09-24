@@ -4,21 +4,38 @@ from datetime import datetime, date
 import json
 import os
 
+# 1. KONFIGURASI HALAMAN
 st.set_page_config(
     page_title="Portal Staf - Kelola Jadwal",
     page_icon="🔒",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="collapsed"
 )
 
-# Sembunyikan Navigasi Sidebar bawaan Streamlit
+# SEMBUNYIKAN SIDEBAR DAN TOMBOL NAVIGASI DENGAN CSS
 st.markdown("""
 <style>
-    [data-testid="aria/Navigation"] {display: none;}
-    [data-testid="stSidebarNav"] {display: none;}
+    [data-testid="stSidebar"] {
+        display: none !important;
+    }
+    [data-testid="stSidebarCollapsedControl"] {
+        display: none !important;
+    }
+    [data-testid="stSidebarNav"] {
+        display: none !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 DB_FILE = "jadwal.json"
+
+def clean_text(value, default="-"):
+    if pd.isna(value) or value is None:
+        return default
+    val_str = str(value).strip()
+    if val_str == "" or val_str.lower() == "nan" or val_str.lower() == "none":
+        return default
+    return val_str
 
 def load_data():
     if os.path.exists(DB_FILE):
@@ -42,15 +59,6 @@ def save_data(data):
         data_to_save.append(item_copy)
     with open(DB_FILE, "w") as f:
         json.dump(data_to_save, f, indent=4)
-
-# Fungsi helper untuk membersihkan teks kosong/nan menjadi "-"
-def clean_text(value, default="-"):
-    if pd.isna(value) or value is None:
-        return default
-    val_str = str(value).strip()
-    if val_str == "" or val_str.lower() == "nan" or val_str.lower() == "none":
-        return default
-    return val_str
 
 if 'temp_dates' not in st.session_state:
     st.session_state.temp_dates = []
@@ -217,7 +225,6 @@ if password == "staf123":
                     else:
                         df_excel = pd.read_excel(uploaded_file)
                     
-                    # Bersihkan tampilan pratinjau agar nan menjadi "-"
                     df_preview = df_excel.fillna("-")
                     st.write("**Pratinjau Data:**")
                     st.dataframe(df_preview, use_container_width=True)
