@@ -43,6 +43,15 @@ def save_data(data):
     with open(DB_FILE, "w") as f:
         json.dump(data_to_save, f, indent=4)
 
+# Fungsi helper untuk membersihkan teks kosong/nan menjadi "-"
+def clean_text(value, default="-"):
+    if pd.isna(value) or value is None:
+        return default
+    val_str = str(value).strip()
+    if val_str == "" or val_str.lower() == "nan" or val_str.lower() == "none":
+        return default
+    return val_str
+
 if 'temp_dates' not in st.session_state:
     st.session_state.temp_dates = []
 
@@ -116,9 +125,16 @@ if password == "staf123":
                 submit_btn = st.form_submit_button("➕ Simpan Ke Jadwal", use_container_width=True)
 
                 if submit_btn:
-                    if sekolah_in and pic_in:
+                    sekolah_clean = clean_text(sekolah_in, "")
+                    pic_clean = clean_text(pic_in, "")
+                    
+                    if sekolah_clean and pic_clean:
                         updated_count = 0
                         added_count = 0
+                        
+                        jumlah_clean = clean_text(jumlah_in)
+                        ket_clean = clean_text(ket_in)
+                        kategori_clean = clean_text(kategori_in, "Sekolah")
                         
                         if tipe_kunjungan == "Pilih Bebas Beberapa Tanggal":
                             if not selected_dates_final:
@@ -131,17 +147,16 @@ if password == "staf123":
                                         "TANGGAL_DATE": d,
                                         "HARI_RUTIN": [],
                                         "TANGGAL_TEXT": tgl_text,
-                                        "SEKOLAH": sekolah_in,
-                                        "PIC": pic_in,
-                                        "JUMLAH": jumlah_in,
-                                        "KETERANGAN": ket_in,
-                                        "KATEGORI": kategori_in
+                                        "SEKOLAH": sekolah_clean,
+                                        "PIC": pic_clean,
+                                        "JUMLAH": jumlah_clean,
+                                        "KETERANGAN": ket_clean,
+                                        "KATEGORI": kategori_clean
                                     }
                                     
-                                    # LOGIKA UPDATE/REPLACE
                                     match_idx = -1
                                     for idx_e, existing in enumerate(jadwal_kunjungan):
-                                        if existing.get("SEKOLAH").lower() == sekolah_in.lower() and existing.get("TANGGAL_DATE") == d:
+                                        if existing.get("SEKOLAH").lower() == sekolah_clean.lower() and existing.get("TANGGAL_DATE") == d:
                                             match_idx = idx_e
                                             break
                                             
@@ -154,7 +169,7 @@ if password == "staf123":
                                         
                                 save_data(jadwal_kunjungan)
                                 st.session_state.temp_dates = []
-                                st.success(f"✅ Berhasil! Added: {added_count}, Updated: {updated_count}")
+                                st.success(f"✅ Berhasil! Data Baru: {added_count}, Diperbarui: {updated_count}")
                                 st.rerun()
                         else:
                             tgl_text = f"Setiap {', '.join(hari_rutin_selected)}"
@@ -165,16 +180,16 @@ if password == "staf123":
                                 "TANGGAL_DATE": None,
                                 "HARI_RUTIN": hari_rutin_selected,
                                 "TANGGAL_TEXT": tgl_text,
-                                "SEKOLAH": sekolah_in,
-                                "PIC": pic_in,
-                                "JUMLAH": jumlah_in,
-                                "KETERANGAN": ket_in,
-                                "KATEGORI": kategori_in
+                                "SEKOLAH": sekolah_clean,
+                                "PIC": pic_clean,
+                                "JUMLAH": jumlah_clean,
+                                "KETERANGAN": ket_clean,
+                                "KATEGORI": kategori_clean
                             }
                             
                             match_idx = -1
                             for idx_e, existing in enumerate(jadwal_kunjungan):
-                                if existing.get("SEKOLAH").lower() == sekolah_in.lower() and existing.get("TIPE") == "Hari Rutin / Berulang":
+                                if existing.get("SEKOLAH").lower() == sekolah_clean.lower() and existing.get("TIPE") == "Hari Rutin / Berulang":
                                     match_idx = idx_e
                                     break
                                     
@@ -191,7 +206,7 @@ if password == "staf123":
 
         # --- TAB 2: IMPORT VIA EXCEL / CSV ---
         with tab_excel:
-            st.caption("Unggah file Excel (.xlsx / .xls) atau CSV (.csv). Data lama dengan sekolah & tanggal sama akan otomatis diperbarui.")
+            st.caption("Unggah file Excel (.xlsx / .xls) atau CSV (.csv). Kolom kosong otomatis diisi '-'.")
             
             uploaded_file = st.file_uploader("Pilih File Excel/CSV:", type=["xlsx", "xls", "csv"])
             
@@ -201,9 +216,11 @@ if password == "staf123":
                         df_excel = pd.read_csv(uploaded_file)
                     else:
                         df_excel = pd.read_excel(uploaded_file)
-                        
+                    
+                    # Bersihkan tampilan pratinjau agar nan menjadi "-"
+                    df_preview = df_excel.fillna("-")
                     st.write("**Pratinjau Data:**")
-                    st.dataframe(df_excel, use_container_width=True)
+                    st.dataframe(df_preview, use_container_width=True)
                     
                     if st.button("📥 Import & Perbarui Data", use_container_width=True):
                         count_added = 0
@@ -212,13 +229,13 @@ if password == "staf123":
                         
                         for _, row in df_excel.iterrows():
                             tgl_val = row.get("TANGGAL", "")
-                            sekolah_val = str(row.get("SEKOLAH", "")).strip()
-                            pic_val = str(row.get("PIC", "")).strip()
-                            jumlah_val = str(row.get("JUMLAH", "-")).strip()
-                            ket_val = str(row.get("KETERANGAN", "-")).strip()
-                            kategori_val = str(row.get("KATEGORI", "Sekolah")).strip()
+                            sekolah_val = clean_text(row.get("SEKOLAH"), "")
+                            pic_val = clean_text(row.get("PIC"))
+                            jumlah_val = clean_text(row.get("JUMLAH"))
+                            ket_val = clean_text(row.get("KETERANGAN"))
+                            kategori_val = clean_text(row.get("KATEGORI"), "Sekolah")
                             
-                            if not sekolah_val or sekolah_val == "nan":
+                            if not sekolah_val:
                                 continue
                                 
                             tgl_parsed = None
@@ -244,7 +261,7 @@ if password == "staf123":
                                 "TIPE": tipe_val,
                                 "TANGGAL_DATE": tgl_parsed,
                                 "HARI_RUTIN": hari_rutin_val,
-                                "TANGGAL_TEXT": tgl_text_val,
+                                "TANGGAL_TEXT": clean_text(tgl_text_val),
                                 "SEKOLAH": sekolah_val,
                                 "PIC": pic_val,
                                 "JUMLAH": jumlah_val,
@@ -252,7 +269,6 @@ if password == "staf123":
                                 "KATEGORI": kategori_val
                             }
                             
-                            # PEMBARUAN OTOMATIS (UPDATE/REPLACE LOGIC)
                             match_index = -1
                             for idx_exist, exist_item in enumerate(jadwal_kunjungan):
                                 same_school = exist_item.get("SEKOLAH", "").lower() == sekolah_val.lower()
@@ -282,22 +298,20 @@ if password == "staf123":
         if not jadwal_kunjungan:
             st.info("Belum ada jadwal yang terdaftar.")
         else:
-            # Mengurutkan jadwal berdasarkan tanggal
             jadwal_sorted = sorted(
                 jadwal_kunjungan,
                 key=lambda x: x.get("TANGGAL_DATE") if x.get("TANGGAL_DATE") else date(2099, 12, 31)
             )
             
-            # Format Tabel Rapi
             table_data = []
             for item in jadwal_sorted:
                 table_data.append({
-                    "Tanggal": item.get("TANGGAL_TEXT", "-"),
-                    "Sekolah / Grup": item.get("SEKOLAH", "-"),
-                    "PIC": item.get("PIC", "-"),
-                    "Jumlah": item.get("JUMLAH", "-"),
-                    "Kategori": item.get("KATEGORI", "-"),
-                    "Keterangan": item.get("KETERANGAN", "-")
+                    "Tanggal": clean_text(item.get("TANGGAL_TEXT")),
+                    "Sekolah / Grup": clean_text(item.get("SEKOLAH")),
+                    "PIC": clean_text(item.get("PIC")),
+                    "Jumlah": clean_text(item.get("JUMLAH")),
+                    "Kategori": clean_text(item.get("KATEGORI")),
+                    "Keterangan": clean_text(item.get("KETERANGAN"))
                 })
             
             df_display = pd.DataFrame(table_data)
