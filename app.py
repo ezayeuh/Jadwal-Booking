@@ -6,15 +6,14 @@ import os
 
 # 1. KONFIGURASI HALAMAN
 st.set_page_config(
-    page_title="Jadwal Kunjungan Kolam Renang / Waterpark",
+    page_title="Dashboard Jadwal Kunjungan",
     page_icon="🏊‍♂️",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="wide"
 )
 
 DB_FILE = "jadwal.json"
 
-# FUNGSI UNTUK MEMBACA DAN MENYIMPAN DATA DARI/KE FILE JSON
+# FUNGSI MEMBACA DATA PERMANEN
 def load_data():
     if os.path.exists(DB_FILE):
         try:
@@ -28,17 +27,7 @@ def load_data():
             return []
     return []
 
-def save_data(data):
-    data_to_save = []
-    for item in data:
-        item_copy = item.copy()
-        if isinstance(item_copy.get("TANGGAL_DATE"), date):
-            item_copy["TANGGAL_DATE"] = item_copy["TANGGAL_DATE"].isoformat()
-        data_to_save.append(item_copy)
-    with open(DB_FILE, "w") as f:
-        json.dump(data_to_save, f, indent=4)
-
-# 2. CUSTOM STYLING
+# CUSTOM STYLING
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
@@ -125,159 +114,9 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 3. DATABASE SEMENTARA (LOAD DARI FILE PERMANEN)
-if 'jadwal_kunjungan' not in st.session_state:
-    st.session_state.jadwal_kunjungan = load_data()
+jadwal_kunjungan = load_data()
 
-if 'temp_dates' not in st.session_state:
-    st.session_state.temp_dates = []
-
-# 4. SIDEBAR: AKSES STAF & FORM INPUT
-with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/3144/3144871.png", width=50)
-    st.title("Akses Portal")
-    
-    is_staff = st.checkbox("🔒 Login Mode Staf (Untuk Input/Hapus)")
-    
-    if is_staff:
-        password = st.text_input("Password Staf:", type="password", value="staf123")
-        if password == "staf123":
-            st.success("Akses Staf Aktif")
-            st.markdown("---")
-            st.subheader("➕ Input Kunjungan Baru")
-            
-            tipe_kunjungan = st.radio("Metode Tanggal:", ["Pilih Bebas Beberapa Tanggal", "Hari Rutin / Berulang"])
-            
-            selected_dates_final = []
-            hari_rutin_selected = []
-            
-            hari_map = {0: "Senin", 1: "Selasa", 2: "Rabu", 3: "Kamis", 4: "Jumat", 5: "Sabtu", 6: "Minggu"}
-            bln_map = {1: "Jan", 2: "Feb", 3: "Mar", 4: "Apr", 5: "Mei", 6: "Jun", 7: "Jul", 8: "Agu", 9: "Sep", 10: "Okt", 11: "Nov", 12: "Des"}
-
-            if tipe_kunjungan == "Pilih Bebas Beberapa Tanggal":
-                st.caption("Pilih tanggal satu per satu lalu klik 'Tambah Tanggal Ini':")
-                col_d1, col_d2 = st.columns([2, 1])
-                with col_d1:
-                    picker_date = st.date_input("Pilih Tanggal:", value=date.today(), key="picker_date")
-                with col_d2:
-                    st.write("")
-                    st.write("")
-                    if st.button("➕ Tambah"):
-                        if picker_date not in st.session_state.temp_dates:
-                            st.session_state.temp_dates.append(picker_date)
-                            st.session_state.temp_dates.sort()
-
-                if st.session_state.temp_dates:
-                    st.write("**Daftar Tanggal Terpilih:**")
-                    for d_item in st.session_state.temp_dates:
-                        t_label = f"{hari_map[d_item.weekday()]}, {d_item.day:02d} {bln_map[d_item.month]} {d_item.year}"
-                        st.markdown(f"- 🗓️ `{t_label}`")
-                    if st.button("🗑️ Hapus Semua Pilihan Tanggal"):
-                        st.session_state.temp_dates = []
-                        st.rerun()
-                
-                selected_dates_final = st.session_state.temp_dates
-            else:
-                hari_rutin_selected = st.multiselect(
-                    "Pilih Hari Rutin:",
-                    ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"],
-                    default=["Selasa"]
-                )
-                catatan_rutin = st.text_input("Keterangan Rutin:", placeholder="Misal: Minggu ke-3")
-
-            st.markdown("---")
-            with st.form("form_kunjungan_staf", clear_on_submit=True):
-                sekolah_in = st.text_input("Nama Sekolah / Grup*", placeholder="SDN 01 Bogor")
-                pic_in = st.text_input("PIC & Kontak*", placeholder="Pak Budi (0812xxx)")
-                jumlah_in = st.text_input("Jumlah Peserta", placeholder="80 Orang")
-                ket_in = st.text_input("Keterangan", placeholder="Paket Edukasi")
-                kategori_in = st.selectbox("Kategori", ["Sekolah", "Kegiatan Rutin", "Umum / Komunitas"])
-
-                submit_btn = st.form_submit_button("➕ Simpan Ke Jadwal", use_container_width=True)
-
-                if submit_btn:
-                    if sekolah_in and pic_in:
-                        if tipe_kunjungan == "Pilih Bebas Beberapa Tanggal":
-                            if not selected_dates_final:
-                                st.error("⚠️ Pilih minimal 1 tanggal terlebih dahulu!")
-                            else:
-                                for d in selected_dates_final:
-                                    tgl_text = f"{hari_map[d.weekday()]}, {d.day:02d} {bln_map[d.month]} {d.year}"
-                                    entry = {
-                                        "ID": f"{d.isoformat()}_{sekolah_in}",
-                                        "TIPE": "Tanggal Spesifik",
-                                        "TANGGAL_DATE": d,
-                                        "HARI_RUTIN": [],
-                                        "TANGGAL_TEXT": tgl_text,
-                                        "SEKOLAH": sekolah_in,
-                                        "PIC": pic_in,
-                                        "JUMLAH": jumlah_in,
-                                        "KETERANGAN": ket_in,
-                                        "KATEGORI": kategori_in
-                                    }
-                                    st.session_state.jadwal_kunjungan.append(entry)
-                                save_data(st.session_state.jadwal_kunjungan)
-                                st.session_state.temp_dates = []
-                                st.success("✅ Jadwal kunjungan berhasil disimpan secara permanen!")
-                                st.rerun()
-                        else:
-                            tgl_text = f"Setiap {', '.join(hari_rutin_selected)}"
-                            if catatan_rutin:
-                                tgl_text += f" ({catatan_rutin})"
-                            entry = {
-                                "ID": f"rutin_{','.join(hari_rutin_selected)}_{sekolah_in}",
-                                "TIPE": "Hari Rutin / Berulang",
-                                "TANGGAL_DATE": None,
-                                "HARI_RUTIN": hari_rutin_selected,
-                                "TANGGAL_TEXT": tgl_text,
-                                "SEKOLAH": sekolah_in,
-                                "PIC": pic_in,
-                                "JUMLAH": jumlah_in,
-                                "KETERANGAN": ket_in,
-                                "KATEGORI": kategori_in
-                            }
-                            st.session_state.jadwal_kunjungan.append(entry)
-                            save_data(st.session_state.jadwal_kunjungan)
-                            st.success("✅ Jadwal kunjungan berhasil disimpan secara permanen!")
-                            st.rerun()
-                    else:
-                        st.error("⚠️ Nama Sekolah/Grup & PIC wajib diisi!")
-            
-            # --- MANAJEMEN HAPUS JADWAL ---
-            if st.session_state.jadwal_kunjungan:
-                st.markdown("---")
-                st.subheader("🗑️ Hapus Jadwal Spesifik")
-                st.caption("Pilih jadwal di bawah untuk menghapusnya:")
-                
-                jadwal_to_delete = None
-                for idx, item in enumerate(st.session_state.jadwal_kunjungan):
-                    col_info, col_del = st.columns([3, 1])
-                    with col_info:
-                        label_item = f"**{item['SEKOLAH']}**\n\n📅 {item['TANGGAL_TEXT']}"
-                        st.markdown(label_item)
-                    with col_del:
-                        if st.button("❌", key=f"del_{idx}"):
-                            jadwal_to_delete = idx
-                    st.markdown("<hr style='margin:4px 0;'/>", unsafe_allow_html=True)
-                
-                if jadwal_to_delete is not None:
-                    removed_item = st.session_state.jadwal_kunjungan.pop(jadwal_to_delete)
-                    save_data(st.session_state.jadwal_kunjungan)
-                    st.success(f"Jadwal '{removed_item['SEKOLAH']}' berhasil dihapus!")
-                    st.rerun()
-
-                st.write("")
-                if st.button("🗑️ Hapus Semua Jadwal Terdaftar", type="secondary", use_container_width=True):
-                    st.session_state.jadwal_kunjungan = []
-                    save_data([])
-                    st.success("Seluruh jadwal berhasil dihapus!")
-                    st.rerun()
-        else:
-            st.error("Password Salah!")
-    else:
-        st.info("ℹ️ Tampilan Pengunjung (Read-Only). Centang 'Login Mode Staf' di atas untuk menginput/menghapus data kunjungan.")
-
-# 5. HERO HEADER
+# HERO HEADER
 st.markdown("""
 <div class="hero-banner">
     <h2 style="margin:0; font-weight:700;">🏊‍♂️ Papan Informasi Jadwal Kunjungan Kolam</h2>
@@ -285,11 +124,11 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# 6. RINGKASAN METRIK
+# RINGKASAN METRIK
 m1, m2, m3 = st.columns(3)
-total_kunjungan = len(st.session_state.jadwal_kunjungan)
-total_sekolah = len([b for b in st.session_state.jadwal_kunjungan if b['KATEGORI'] == 'Sekolah'])
-total_rutin = len([b for b in st.session_state.jadwal_kunjungan if b['KATEGORI'] == 'Kegiatan Rutin'])
+total_kunjungan = len(jadwal_kunjungan)
+total_sekolah = len([b for b in jadwal_kunjungan if b.get('KATEGORI') == 'Sekolah'])
+total_rutin = len([b for b in jadwal_kunjungan if b.get('KATEGORI') == 'Kegiatan Rutin'])
 
 with m1:
     st.markdown(f'<div class="stat-card"><div class="stat-label">Total Agenda Terdaftar</div><div class="stat-value">{total_kunjungan} <span style="font-size:0.85rem; color:#64748b; font-weight:400;">Rombongan</span></div></div>', unsafe_allow_html=True)
@@ -300,7 +139,7 @@ with m3:
 
 st.write("")
 
-# 7. FILTER PERIODE MINGGU
+# FILTER PERIODE MINGGU
 c_filter, c_blank = st.columns([2, 2])
 with c_filter:
     input_date = st.date_input("🗓️ Tampilkan Jadwal Minggu Dari Tanggal:", value=date.today())
@@ -313,7 +152,7 @@ hari_names = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
 st.markdown(f"**Periode Tampilan:** <span style='color:#0284c7; font-weight:700;'>{start_week.strftime('%d %b %Y')}</span> s/d <span style='color:#0284c7; font-weight:700;'>{end_week.strftime('%d %b %Y')}</span>", unsafe_allow_html=True)
 st.write("")
 
-# 8. TAMPILAN KALENDER 1 MINGGU
+# KALENDER 1 MINGGU
 st.subheader("📅 Jadwal Kunjungan Minggu Ini")
 
 cols = st.columns(7)
@@ -323,10 +162,10 @@ for idx, day_date in enumerate(week_days):
     is_today = (day_date == date.today())
     
     matching = []
-    for b in st.session_state.jadwal_kunjungan:
-        if b["TIPE"] == "Tanggal Spesifik" and b["TANGGAL_DATE"] == day_date:
+    for b in jadwal_kunjungan:
+        if b.get("TIPE") == "Tanggal Spesifik" and b.get("TANGGAL_DATE") == day_date:
             matching.append(b)
-        elif b["TIPE"] == "Hari Rutin / Berulang" and day_name in b.get("HARI_RUTIN", []):
+        elif b.get("TIPE") == "Hari Rutin / Berulang" and day_name in b.get("HARI_RUTIN", []):
             matching.append(b)
             
     with cols[idx]:
@@ -337,7 +176,7 @@ for idx, day_date in enumerate(week_days):
         cards_html = ""
         if matching:
             for mb in matching:
-                badge_style = "cat-sekolah" if mb["KATEGORI"] == "Sekolah" else ("cat-rutin" if mb["KATEGORI"] == "Kegiatan Rutin" else "cat-umum")
+                badge_style = "cat-sekolah" if mb.get("KATEGORI") == "Sekolah" else ("cat-rutin" if mb.get("KATEGORI") == "Kegiatan Rutin" else "cat-umum")
                 cards_html += f"""<div class="visit-card">
                     <div class="school-title">{mb['SEKOLAH']}</div>
                     <div class="text-muted">👥 {mb['JUMLAH']}</div>
