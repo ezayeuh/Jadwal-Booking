@@ -11,25 +11,12 @@ st.set_page_config(
     layout="wide"
 )
 
-DB_FILE = "jadwal.json"
-
-# FUNGSI MEMBACA DATA PERMANEN
-def load_data():
-    if os.path.exists(DB_FILE):
-        try:
-            with open(DB_FILE, "r") as f:
-                data = json.load(f)
-                for item in data:
-                    if item.get("TANGGAL_DATE"):
-                        item["TANGGAL_DATE"] = date.fromisoformat(item["TANGGAL_DATE"])
-                return data
-        except Exception:
-            return []
-    return []
-
-# CUSTOM STYLING
+# Sembunyikan Navigasi Sidebar bawaan Streamlit
 st.markdown("""
 <style>
+    [data-testid="aria/Navigation"] {display: none;}
+    [data-testid="stSidebarNav"] {display: none;}
+    
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
     html, body, [class*="css"] {
         font-family: 'Plus Jakarta Sans', sans-serif;
@@ -113,6 +100,22 @@ st.markdown("""
     .cat-umum { background: #fef3c7; color: #b45309; }
 </style>
 """, unsafe_allow_html=True)
+
+DB_FILE = "jadwal.json"
+
+# FUNGSI MEMBACA DATA PERMANEN
+def load_data():
+    if os.path.exists(DB_FILE):
+        try:
+            with open(DB_FILE, "r") as f:
+                data = json.load(f)
+                for item in data:
+                    if item.get("TANGGAL_DATE"):
+                        item["TANGGAL_DATE"] = date.fromisoformat(item["TANGGAL_DATE"])
+                return data
+        except Exception:
+            return []
+    return []
 
 jadwal_kunjungan = load_data()
 
