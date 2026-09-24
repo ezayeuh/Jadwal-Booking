@@ -97,44 +97,9 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 3. DATABASE SEMENTARA (SESSION STATE)
+# 3. DATABASE SEMENTARA (KOSONG TANPA JADWAL BAWAAN)
 if 'jadwal_kunjungan' not in st.session_state:
-    st.session_state.jadwal_kunjungan = [
-        {
-            "NO": 1,
-            "TIPE": "Tanggal Spesifik",
-            "TANGGAL_DATE": date(2026, 9, 28), # Senin
-            "TANGGAL_TEXT": "Senin, 28 Sep 2026",
-            "SEKOLAH": "SDN Kedung Halang 5",
-            "PIC": "Ade Supian (0815-6390-2017)",
-            "JUMLAH": "115 Orang (Kls 4-5)",
-            "KETERANGAN": "KKGO Bogor Utara",
-            "KATEGORI": "Sekolah"
-        },
-        {
-            "NO": 2,
-            "TIPE": "Hari Rutin / Berulang",
-            "HARI_RUTIN": ["Selasa", "Rabu"],
-            "TANGGAL_DATE": None,
-            "TANGGAL_TEXT": "Setiap Selasa & Rabu",
-            "SEKOLAH": "Grup Senam Bu Pupu / Bu Cici",
-            "PIC": "Bu Pupu (0878-7873-9767)",
-            "JUMLAH": "10 Orang / Hydrotherapy",
-            "KETERANGAN": "Gaperi",
-            "KATEGORI": "Kegiatan Rutin"
-        },
-        {
-            "NO": 3,
-            "TIPE": "Tanggal Spesifik",
-            "TANGGAL_DATE": date(2026, 10, 1), # Kamis
-            "TANGGAL_TEXT": "Kamis, 01 Okt 2026",
-            "SEKOLAH": "TK Islam Al-Azhar",
-            "PIC": "Ibu Rahma (0812-9988-7766)",
-            "JUMLAH": "45 Siswa + Wali",
-            "KETERANGAN": "Fun Swimming",
-            "KATEGORI": "Sekolah"
-        }
-    ]
+    st.session_state.jadwal_kunjungan = []
 
 if 'temp_dates' not in st.session_state:
     st.session_state.temp_dates = []
@@ -249,6 +214,14 @@ with st.sidebar:
                             st.rerun()
                     else:
                         st.error("⚠️ Nama Sekolah/Grup & PIC wajib diisi!")
+            
+            # Tombol Hapus Semua Jadwal untuk Staf
+            if st.session_state.jadwal_kunjungan:
+                st.markdown("---")
+                if st.button("🗑️ Hapus Semua Jadwal Terdaftar", type="secondary", use_container_width=True):
+                    st.session_state.jadwal_kunjungan = []
+                    st.success("Seluruh jadwal berhasil dihapus!")
+                    st.rerun()
         else:
             st.error("Password Salah!")
     else:
@@ -277,11 +250,10 @@ with m3:
 
 st.write("")
 
-# 7. FILTER PERIODE MINGGU (Sistem Otomatis Menghitung Hari Senin)
+# 7. FILTER PERIODE MINGGU (Otomatis Menghitung Hari Senin)
 c_filter, c_blank = st.columns([2, 2])
 with c_filter:
     input_date = st.date_input("🗓️ Tampilkan Jadwal Minggu Dari Tanggal:", value=date.today())
-    # Menghitung otomatis hari Senin dari tanggal yang dipilih
     start_week = input_date - timedelta(days=input_date.weekday())
 
 week_days = [start_week + timedelta(days=i) for i in range(7)]
@@ -345,8 +317,8 @@ st.divider()
 # 9. TABEL RINCIAN KUNJUNGAN
 st.subheader("📋 Rincian Lengkap Seluruh Jadwal")
 
-df = pd.DataFrame(st.session_state.jadwal_kunjungan)
-if not df.empty:
+if st.session_state.jadwal_kunjungan:
+    df = pd.DataFrame(st.session_state.jadwal_kunjungan)
     df_display = df[["NO", "TANGGAL_TEXT", "SEKOLAH", "PIC", "JUMLAH", "KETERANGAN", "KATEGORI"]].copy()
     df_display.columns = ["No", "Hari / Tanggal", "Sekolah / Instansi", "PIC & Kontak", "Jumlah Peserta", "Keterangan", "Kategori"]
     
@@ -360,3 +332,5 @@ if not df.empty:
         file_name=f"jadwal_kunjungan_kolam_{date.today()}.csv",
         mime="text/csv"
     )
+else:
+    st.info("Belum ada jadwal kunjungan terdaftar.")
