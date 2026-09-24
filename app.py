@@ -97,7 +97,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 3. DATABASE SEMENTARA (KOSONG TANPA JADWAL BAWAAN)
+# 3. DATABASE SEMENTARA (SESSION STATE)
 if 'jadwal_kunjungan' not in st.session_state:
     st.session_state.jadwal_kunjungan = []
 
@@ -215,7 +215,6 @@ with st.sidebar:
                     else:
                         st.error("⚠️ Nama Sekolah/Grup & PIC wajib diisi!")
             
-            # Tombol Hapus Semua Jadwal untuk Staf
             if st.session_state.jadwal_kunjungan:
                 st.markdown("---")
                 if st.button("🗑️ Hapus Semua Jadwal Terdaftar", type="secondary", use_container_width=True):
@@ -311,26 +310,3 @@ for idx, day_date in enumerate(week_days):
         </div>
         """
         st.html(full_box_html)
-
-st.divider()
-
-# 9. TABEL RINCIAN KUNJUNGAN
-st.subheader("📋 Rincian Lengkap Seluruh Jadwal")
-
-if st.session_state.jadwal_kunjungan:
-    df = pd.DataFrame(st.session_state.jadwal_kunjungan)
-    df_display = df[["NO", "TANGGAL_TEXT", "SEKOLAH", "PIC", "JUMLAH", "KETERANGAN", "KATEGORI"]].copy()
-    df_display.columns = ["No", "Hari / Tanggal", "Sekolah / Instansi", "PIC & Kontak", "Jumlah Peserta", "Keterangan", "Kategori"]
-    
-    st.dataframe(df_display, use_container_width=True, hide_index=True)
-    
-    # Export CSV
-    csv = df_display.to_csv(index=False).encode('utf-8')
-    st.download_button(
-        label="📥 Download Rekap Jadwal (CSV)",
-        data=csv,
-        file_name=f"jadwal_kunjungan_kolam_{date.today()}.csv",
-        mime="text/csv"
-    )
-else:
-    st.info("Belum ada jadwal kunjungan terdaftar.")
