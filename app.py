@@ -136,7 +136,6 @@ if 'jadwal_kunjungan' not in st.session_state:
         }
     ]
 
-# Session state untuk penampung pilihan tanggal bebas
 if 'temp_dates' not in st.session_state:
     st.session_state.temp_dates = []
 
@@ -278,12 +277,12 @@ with m3:
 
 st.write("")
 
-# 7. FILTER PERIODE MINGGU
+# 7. FILTER PERIODE MINGGU (Sistem Otomatis Menghitung Hari Senin)
 c_filter, c_blank = st.columns([2, 2])
 with c_filter:
-    today = date.today()
-    start_of_week_default = today - timedelta(days=today.weekday())
-    start_week = st.date_input("🗓️ Tampilkan Jadwal Minggu (Mulai Senin):", value=start_of_week_default)
+    input_date = st.date_input("🗓️ Tampilkan Jadwal Minggu Dari Tanggal:", value=date.today())
+    # Menghitung otomatis hari Senin dari tanggal yang dipilih
+    start_week = input_date - timedelta(days=input_date.weekday())
 
 week_days = [start_week + timedelta(days=i) for i in range(7)]
 end_week = week_days[-1]
@@ -311,25 +310,23 @@ for idx, day_date in enumerate(week_days):
     with cols[idx]:
         header_class = "day-header-today" if is_today else "day-header"
         box_class = "day-box-today" if is_today else "day-box"
-        today_tag = "<span style='font-size:0.65rem; background:#0284c7; color:white; padding:1px 5px; border-radius:4px;'>HARI INI</span>" if is_today else ""
+        today_tag = '<span style="font-size:0.65rem; background:#0284c7; color:white; padding:1px 5px; border-radius:4px;">HARI INI</span>' if is_today else ""
         
         cards_html = ""
         if matching:
             for mb in matching:
                 badge_style = "cat-sekolah" if mb["KATEGORI"] == "Sekolah" else ("cat-rutin" if mb["KATEGORI"] == "Kegiatan Rutin" else "cat-umum")
-                cards_html += f"""
-                <div class="visit-card">
+                cards_html += f"""<div class="visit-card">
                     <div class="school-title">{mb['SEKOLAH']}</div>
                     <div class="text-muted">👥 {mb['JUMLAH']}</div>
                     <div class="text-muted">📞 {mb['PIC']}</div>
                     <div class="text-muted">📌 {mb['KETERANGAN']}</div>
                     <span class="cat-badge {badge_style}">{mb['KATEGORI']}</span>
-                </div>
-                """
+                </div>"""
         else:
-            cards_html = "<div class='text-muted' style='text-align:center; margin-top:20px; font-style:italic;'>Tidak Ada Kunjungan</div>"
+            cards_html = '<div class="text-muted" style="text-align:center; margin-top:20px; font-style:italic;">Tidak Ada Kunjungan</div>'
             
-        st.markdown(f"""
+        full_box_html = f"""
         <div class="{box_class}">
             <div class="{header_class}">
                 <span>{day_name}</span>
@@ -340,7 +337,8 @@ for idx, day_date in enumerate(week_days):
                 {cards_html}
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        """
+        st.html(full_box_html)
 
 st.divider()
 
