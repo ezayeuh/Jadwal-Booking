@@ -54,101 +54,193 @@ if password == "staf123":
     with col_input:
         st.subheader("➕ Input Kunjungan Baru")
         
-        tipe_kunjungan = st.radio("Metode Tanggal:", ["Pilih Bebas Beberapa Tanggal", "Hari Rutin / Berulang"])
+        tab_manual, tab_excel = st.tabs(["📝 Form Manual", "📊 Import Excel"])
         
-        selected_dates_final = []
-        hari_rutin_selected = []
-        
-        hari_map = {0: "Senin", 1: "Selasa", 2: "Rabu", 3: "Kamis", 4: "Jumat", 5: "Sabtu", 6: "Minggu"}
-        bln_map = {1: "Jan", 2: "Feb", 3: "Mar", 4: "Apr", 5: "Mei", 6: "Jun", 7: "Jul", 8: "Agu", 9: "Sep", 10: "Okt", 11: "Nov", 12: "Des"}
-
-        if tipe_kunjungan == "Pilih Bebas Beberapa Tanggal":
-            st.caption("Pilih tanggal satu per satu lalu klik 'Tambah':")
-            col_d1, col_d2 = st.columns([2, 1])
-            with col_d1:
-                picker_date = st.date_input("Pilih Tanggal:", value=date.today(), key="picker_date")
-            with col_d2:
-                st.write("")
-                st.write("")
-                if st.button("➕ Tambah Tanggal"):
-                    if picker_date not in st.session_state.temp_dates:
-                        st.session_state.temp_dates.append(picker_date)
-                        st.session_state.temp_dates.sort()
-
-            if st.session_state.temp_dates:
-                st.write("**Daftar Tanggal Terpilih:**")
-                for d_item in st.session_state.temp_dates:
-                    t_label = f"{hari_map[d_item.weekday()]}, {d_item.day:02d} {bln_map[d_item.month]} {d_item.year}"
-                    st.markdown(f"- 🗓️ `{t_label}`")
-                if st.button("🗑️ Hapus Pilihan Tanggal"):
-                    st.session_state.temp_dates = []
-                    st.rerun()
+        # --- TAB 1: FORM MANUAL ---
+        with tab_manual:
+            tipe_kunjungan = st.radio("Metode Tanggal:", ["Pilih Bebas Beberapa Tanggal", "Hari Rutin / Berulang"])
             
-            selected_dates_final = st.session_state.temp_dates
-        else:
-            hari_rutin_selected = st.multiselect(
-                "Pilih Hari Rutin:",
-                ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"],
-                default=["Selasa"]
-            )
-            catatan_rutin = st.text_input("Keterangan Rutin:", placeholder="Misal: Minggu ke-3")
+            selected_dates_final = []
+            hari_rutin_selected = []
+            
+            hari_map = {0: "Senin", 1: "Selasa", 2: "Rabu", 3: "Kamis", 4: "Jumat", 5: "Sabtu", 6: "Minggu"}
+            bln_map = {1: "Jan", 2: "Feb", 3: "Mar", 4: "Apr", 5: "Mei", 6: "Jun", 7: "Jul", 8: "Agu", 9: "Sep", 10: "Okt", 11: "Nov", 12: "Des"}
 
-        st.markdown("---")
-        with st.form("form_kunjungan_staf", clear_on_submit=True):
-            sekolah_in = st.text_input("Nama Sekolah / Grup*", placeholder="SDN 01 Bogor")
-            pic_in = st.text_input("PIC & Kontak*", placeholder="Pak Budi (0812xxx)")
-            jumlah_in = st.text_input("Jumlah Peserta", placeholder="80 Orang")
-            ket_in = st.text_input("Keterangan", placeholder="Paket Edukasi")
-            kategori_in = st.selectbox("Kategori", ["Sekolah", "Kegiatan Rutin", "Umum / Komunitas"])
+            if tipe_kunjungan == "Pilih Bebas Beberapa Tanggal":
+                st.caption("Pilih tanggal satu per satu lalu klik 'Tambah':")
+                col_d1, col_d2 = st.columns([2, 1])
+                with col_d1:
+                    picker_date = st.date_input("Pilih Tanggal:", value=date.today(), key="picker_date")
+                with col_d2:
+                    st.write("")
+                    st.write("")
+                    if st.button("➕ Tambah Tanggal"):
+                        if picker_date not in st.session_state.temp_dates:
+                            st.session_state.temp_dates.append(picker_date)
+                            st.session_state.temp_dates.sort()
 
-            submit_btn = st.form_submit_button("➕ Simpan Ke Jadwal", use_container_width=True)
+                if st.session_state.temp_dates:
+                    st.write("**Daftar Tanggal Terpilih:**")
+                    for d_item in st.session_state.temp_dates:
+                        t_label = f"{hari_map[d_item.weekday()]}, {d_item.day:02d} {bln_map[d_item.month]} {d_item.year}"
+                        st.markdown(f"- 🗓️ `{t_label}`")
+                    if st.button("🗑️ Hapus Pilihan Tanggal"):
+                        st.session_state.temp_dates = []
+                        st.rerun()
+                
+                selected_dates_final = st.session_state.temp_dates
+            else:
+                hari_rutin_selected = st.multiselect(
+                    "Pilih Hari Rutin:",
+                    ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"],
+                    default=["Selasa"]
+                )
+                catatan_rutin = st.text_input("Keterangan Rutin:", placeholder="Misal: Minggu ke-3")
 
-            if submit_btn:
-                if sekolah_in and pic_in:
-                    if tipe_kunjungan == "Pilih Bebas Beberapa Tanggal":
-                        if not selected_dates_final:
-                            st.error("⚠️ Pilih minimal 1 tanggal terlebih dahulu!")
+            st.markdown("---")
+            with st.form("form_kunjungan_staf", clear_on_submit=True):
+                sekolah_in = st.text_input("Nama Sekolah / Grup*", placeholder="SDN 01 Bogor")
+                pic_in = st.text_input("PIC & Kontak*", placeholder="Pak Budi (0812xxx)")
+                jumlah_in = st.text_input("Jumlah Peserta", placeholder="80 Orang")
+                ket_in = st.text_input("Keterangan", placeholder="Paket Edukasi")
+                kategori_in = st.selectbox("Kategori", ["Sekolah", "Kegiatan Rutin", "Umum / Komunitas"])
+
+                submit_btn = st.form_submit_button("➕ Simpan Ke Jadwal", use_container_width=True)
+
+                if submit_btn:
+                    if sekolah_in and pic_in:
+                        if tipe_kunjungan == "Pilih Bebas Beberapa Tanggal":
+                            if not selected_dates_final:
+                                st.error("⚠️ Pilih minimal 1 tanggal terlebih dahulu!")
+                            else:
+                                for d in selected_dates_final:
+                                    tgl_text = f"{hari_map[d.weekday()]}, {d.day:02d} {bln_map[d.month]} {d.year}"
+                                    entry = {
+                                        "TIPE": "Tanggal Spesifik",
+                                        "TANGGAL_DATE": d,
+                                        "HARI_RUTIN": [],
+                                        "TANGGAL_TEXT": tgl_text,
+                                        "SEKOLAH": sekolah_in,
+                                        "PIC": pic_in,
+                                        "JUMLAH": jumlah_in,
+                                        "KETERANGAN": ket_in,
+                                        "KATEGORI": kategori_in
+                                    }
+                                    jadwal_kunjungan.append(entry)
+                                save_data(jadwal_kunjungan)
+                                st.session_state.temp_dates = []
+                                st.success("✅ Jadwal kunjungan berhasil disimpan!")
+                                st.rerun()
                         else:
-                            for d in selected_dates_final:
-                                tgl_text = f"{hari_map[d.weekday()]}, {d.day:02d} {bln_map[d.month]} {d.year}"
-                                entry = {
-                                    "TIPE": "Tanggal Spesifik",
-                                    "TANGGAL_DATE": d,
-                                    "HARI_RUTIN": [],
-                                    "TANGGAL_TEXT": tgl_text,
-                                    "SEKOLAH": sekolah_in,
-                                    "PIC": pic_in,
-                                    "JUMLAH": jumlah_in,
-                                    "KETERANGAN": ket_in,
-                                    "KATEGORI": kategori_in
-                                }
-                                jadwal_kunjungan.append(entry)
+                            tgl_text = f"Setiap {', '.join(hari_rutin_selected)}"
+                            if catatan_rutin:
+                                tgl_text += f" ({catatan_rutin})"
+                            entry = {
+                                "TIPE": "Hari Rutin / Berulang",
+                                "TANGGAL_DATE": None,
+                                "HARI_RUTIN": hari_rutin_selected,
+                                "TANGGAL_TEXT": tgl_text,
+                                "SEKOLAH": sekolah_in,
+                                "PIC": pic_in,
+                                "JUMLAH": jumlah_in,
+                                "KETERANGAN": ket_in,
+                                "KATEGORI": kategori_in
+                            }
+                            jadwal_kunjungan.append(entry)
                             save_data(jadwal_kunjungan)
-                            st.session_state.temp_dates = []
                             st.success("✅ Jadwal kunjungan berhasil disimpan!")
                             st.rerun()
                     else:
-                        tgl_text = f"Setiap {', '.join(hari_rutin_selected)}"
-                        if catatan_rutin:
-                            tgl_text += f" ({catatan_rutin})"
-                        entry = {
-                            "TIPE": "Hari Rutin / Berulang",
-                            "TANGGAL_DATE": None,
-                            "HARI_RUTIN": hari_rutin_selected,
-                            "TANGGAL_TEXT": tgl_text,
-                            "SEKOLAH": sekolah_in,
-                            "PIC": pic_in,
-                            "JUMLAH": jumlah_in,
-                            "KETERANGAN": ket_in,
-                            "KATEGORI": kategori_in
-                        }
-                        jadwal_kunjungan.append(entry)
-                        save_data(jadwal_kunjungan)
-                        st.success("✅ Jadwal kunjungan berhasil disimpan!")
-                        st.rerun()
-                else:
-                    st.error("⚠️ Nama Sekolah/Grup & PIC wajib diisi!")
+                        st.error("⚠️ Nama Sekolah/Grup & PIC wajib diisi!")
 
+        # --- TAB 2: IMPORT VIA EXCEL ---
+        with tab_excel:
+            st.caption("Unggah file Excel (.xlsx atau .xls) berisi data jadwal kunjungan.")
+            
+            # Download Template CSV/Excel Dummy
+            template_df = pd.DataFrame([
+                {
+                    "TANGGAL": "2026-10-05",
+                    "SEKOLAH": "SDN 01 Bogor",
+                    "PIC": "Pak Budi (0812xxx)",
+                    "JUMLAH": "80 Orang",
+                    "KETERANGAN": "Paket Edukasi",
+                    "KATEGORI": "Sekolah"
+                },
+                {
+                    "TANGGAL": "Setiap Selasa, Kamis",
+                    "SEKOLAH": "Klub Renang Tirta",
+                    "PIC": "Ibu Lani (0813xxx)",
+                    "JUMLAH": "20 Orang",
+                    "KETERANGAN": "Latihan Rutin",
+                    "KATEGORI": "Kegiatan Rutin"
+                }
+            ])
+            
+            uploaded_file = st.file_uploader("Pilih File Excel:", type=["xlsx", "xls"])
+            
+            if uploaded_file is not None:
+                try:
+                    df_excel = pd.read_excel(uploaded_file)
+                    st.write("**Pratinjau Data File Excel:**")
+                    st.dataframe(df_excel, use_container_width=True)
+                    
+                    if st.button("📥 Import Semua Data Dari Excel", use_container_width=True):
+                        count_success = 0
+                        hari_names_list = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
+                        
+                        for _, row in df_excel.iterrows():
+                            tgl_val = row.get("TANGGAL", "")
+                            sekolah_val = str(row.get("SEKOLAH", "")).strip()
+                            pic_val = str(row.get("PIC", "")).strip()
+                            jumlah_val = str(row.get("JUMLAH", "-")).strip()
+                            ket_val = str(row.get("KETERANGAN", "-")).strip()
+                            kategori_val = str(row.get("KATEGORI", "Sekolah")).strip()
+                            
+                            if not sekolah_val or sekolah_val == "nan":
+                                continue
+                                
+                            tgl_parsed = None
+                            tipe_val = "Tanggal Spesifik"
+                            hari_rutin_val = []
+                            tgl_text_val = str(tgl_val)
+                            
+                            # Cek apakah format Tanggal berupa Date
+                            try:
+                                if isinstance(tgl_val, (pd.Timestamp, datetime, date)):
+                                    tgl_parsed = tgl_val.date() if isinstance(tgl_val, (pd.Timestamp, datetime)) else tgl_val
+                                else:
+                                    tgl_parsed = datetime.strptime(str(tgl_val).strip(), "%Y-%m-%d").date()
+                                
+                                tgl_text_val = f"{hari_map[tgl_parsed.weekday()]}, {tgl_parsed.day:02d} {bln_map[tgl_parsed.month]} {tgl_parsed.year}"
+                            except Exception:
+                                # Jika bukan format tanggal standar YYYY-MM-DD, anggap sebagai jadwal/hari rutin
+                                tipe_val = "Hari Rutin / Berulang"
+                                for h_name in hari_names_list:
+                                    if h_name.lower() in str(tgl_val).lower():
+                                        hari_rutin_val.append(h_name)
+
+                            entry = {
+                                "TIPE": tipe_val,
+                                "TANGGAL_DATE": tgl_parsed,
+                                "HARI_RUTIN": hari_rutin_val,
+                                "TANGGAL_TEXT": tgl_text_val,
+                                "SEKOLAH": sekolah_val,
+                                "PIC": pic_val,
+                                "JUMLAH": jumlah_val,
+                                "KETERANGAN": ket_val,
+                                "KATEGORI": kategori_val
+                            }
+                            jadwal_kunjungan.append(entry)
+                            count_success += 1
+                            
+                        save_data(jadwal_kunjungan)
+                        st.success(f"✅ Berhasil mengimpor {count_success} jadwal dari Excel!")
+                        st.rerun()
+                except Exception as e:
+                    st.error(f"Gagal membaca file Excel. Pastikan format kolom sesuai. Error: {e}")
+
+    # --- KOLOM KANAN: HAPUS/KELOLA JADWAL ---
     with col_manage:
         st.subheader("🗑️ Kelola & Hapus Jadwal")
         if not jadwal_kunjungan:
