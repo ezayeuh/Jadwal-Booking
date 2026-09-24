@@ -10,6 +10,14 @@ st.set_page_config(
     layout="wide"
 )
 
+# Sembunyikan Navigasi Sidebar bawaan Streamlit
+st.markdown("""
+<style>
+    [data-testid="aria/Navigation"] {display: none;}
+    [data-testid="stSidebarNav"] {display: none;}
+</style>
+""", unsafe_allow_html=True)
+
 DB_FILE = "jadwal.json"
 
 def load_data():
@@ -54,7 +62,7 @@ if password == "staf123":
     with col_input:
         st.subheader("➕ Input Kunjungan Baru")
         
-        tab_manual, tab_excel = st.tabs(["📝 Form Manual", "📊 Import Excel"])
+        tab_manual, tab_excel = st.tabs(["📝 Form Manual", "📊 Import Excel / CSV"])
         
         # --- TAB 1: FORM MANUAL ---
         with tab_manual:
@@ -153,39 +161,23 @@ if password == "staf123":
                     else:
                         st.error("⚠️ Nama Sekolah/Grup & PIC wajib diisi!")
 
-        # --- TAB 2: IMPORT VIA EXCEL ---
+        # --- TAB 2: IMPORT VIA EXCEL / CSV ---
         with tab_excel:
-            st.caption("Unggah file Excel (.xlsx atau .xls) berisi data jadwal kunjungan.")
+            st.caption("Unggah file Excel (.xlsx / .xls) atau CSV (.csv) berisi data jadwal kunjungan.")
             
-            # Download Template CSV/Excel Dummy
-            template_df = pd.DataFrame([
-                {
-                    "TANGGAL": "2026-10-05",
-                    "SEKOLAH": "SDN 01 Bogor",
-                    "PIC": "Pak Budi (0812xxx)",
-                    "JUMLAH": "80 Orang",
-                    "KETERANGAN": "Paket Edukasi",
-                    "KATEGORI": "Sekolah"
-                },
-                {
-                    "TANGGAL": "Setiap Selasa, Kamis",
-                    "SEKOLAH": "Klub Renang Tirta",
-                    "PIC": "Ibu Lani (0813xxx)",
-                    "JUMLAH": "20 Orang",
-                    "KETERANGAN": "Latihan Rutin",
-                    "KATEGORI": "Kegiatan Rutin"
-                }
-            ])
-            
-            uploaded_file = st.file_uploader("Pilih File Excel:", type=["xlsx", "xls"])
+            uploaded_file = st.file_uploader("Pilih File Excel/CSV:", type=["xlsx", "xls", "csv"])
             
             if uploaded_file is not None:
                 try:
-                    df_excel = pd.read_excel(uploaded_file)
-                    st.write("**Pratinjau Data File Excel:**")
+                    if uploaded_file.name.endswith('.csv'):
+                        df_excel = pd.read_csv(uploaded_file)
+                    else:
+                        df_excel = pd.read_excel(uploaded_file)
+                        
+                    st.write("**Pratinjau Data:**")
                     st.dataframe(df_excel, use_container_width=True)
                     
-                    if st.button("📥 Import Semua Data Dari Excel", use_container_width=True):
+                    if st.button("📥 Import Semua Data Dari File", use_container_width=True):
                         count_success = 0
                         hari_names_list = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
                         
@@ -205,7 +197,6 @@ if password == "staf123":
                             hari_rutin_val = []
                             tgl_text_val = str(tgl_val)
                             
-                            # Cek apakah format Tanggal berupa Date
                             try:
                                 if isinstance(tgl_val, (pd.Timestamp, datetime, date)):
                                     tgl_parsed = tgl_val.date() if isinstance(tgl_val, (pd.Timestamp, datetime)) else tgl_val
@@ -214,7 +205,6 @@ if password == "staf123":
                                 
                                 tgl_text_val = f"{hari_map[tgl_parsed.weekday()]}, {tgl_parsed.day:02d} {bln_map[tgl_parsed.month]} {tgl_parsed.year}"
                             except Exception:
-                                # Jika bukan format tanggal standar YYYY-MM-DD, anggap sebagai jadwal/hari rutin
                                 tipe_val = "Hari Rutin / Berulang"
                                 for h_name in hari_names_list:
                                     if h_name.lower() in str(tgl_val).lower():
@@ -235,10 +225,10 @@ if password == "staf123":
                             count_success += 1
                             
                         save_data(jadwal_kunjungan)
-                        st.success(f"✅ Berhasil mengimpor {count_success} jadwal dari Excel!")
+                        st.success(f"✅ Berhasil mengimpor {count_success} jadwal!")
                         st.rerun()
                 except Exception as e:
-                    st.error(f"Gagal membaca file Excel. Pastikan format kolom sesuai. Error: {e}")
+                    st.error(f"Gagal membaca file. Pastikan format kolom sesuai. Error: {e}")
 
     # --- KOLOM KANAN: HAPUS/KELOLA JADWAL ---
     with col_manage:
