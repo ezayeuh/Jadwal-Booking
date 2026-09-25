@@ -3,6 +3,12 @@ import pandas as pd
 from datetime import datetime, date
 from streamlit_gsheets import GSheetsConnection
 
+# -------------------------------------------------------------
+# KONFIGURASI SPREADSHEET
+# Ganti dengan URL Google Sheet Anda
+# -------------------------------------------------------------
+SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1XsYvF0pcBYjRm-h_oPf2jag3OwUFLK43bhRoyE-yh-M/edit"
+
 # 1. KONFIGURASI HALAMAN
 st.set_page_config(
     page_title="Portal Staf - Kelola Jadwal",
@@ -27,7 +33,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # KONEKSI GOOGLE SHEETS
-# Menggunakan pemanggilan standar yang membaca dari Secrets TOML secara langsung
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def clean_text(value, default="-"):
@@ -40,7 +45,7 @@ def clean_text(value, default="-"):
 
 def load_data():
     try:
-        df = conn.read(ttl=0)
+        df = conn.read(spreadsheet=SPREADSHEET_URL, ttl=0)
         if df.empty:
             return []
         data = df.to_dict(orient="records")
@@ -72,7 +77,7 @@ def save_data(data):
             df["TANGGAL_DATE"] = df["TANGGAL_DATE"].astype(str)
         if "HARI_RUTIN" in df.columns:
             df["HARI_RUTIN"] = df["HARI_RUTIN"].astype(str)
-    conn.update(data=df)
+    conn.update(spreadsheet=SPREADSHEET_URL, data=df)
 
 if 'temp_dates' not in st.session_state:
     st.session_state.temp_dates = []
