@@ -1,13 +1,13 @@
 import streamlit as st
+import pandas as pd
 from streamlit_gsheets import GSheetsConnection
 
 # -------------------------------------------------------------
-# SANITASI OTOMATIS PRIVATE KEY (Mencegah error RSA PEM)
+# SANITASI PRIVATE KEY (Aman untuk st.secrets read-only)
 # -------------------------------------------------------------
-if "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
-    if "private_key" in st.secrets["connections"]["gsheets"]:
-        pkey = st.secrets["connections"]["gsheets"]["private_key"]
-        st.secrets["connections"]["gsheets"]["private_key"] = pkey.replace("\\n", "\n")
+gsheets_config = dict(st.secrets.get("connections", {}).get("gsheets", {}))
+if "private_key" in gsheets_config:
+    gsheets_config["private_key"] = gsheets_config["private_key"].replace("\\n", "\n")
 
 # 1. KONFIGURASI HALAMAN UTAMA
 st.set_page_config(
@@ -17,7 +17,7 @@ st.set_page_config(
 )
 
 # KONEKSI GOOGLE SHEETS
-conn = st.connection("gsheets", type=GSheetsConnection)
+conn = st.connection("gsheets", type=GSheetsConnection, **gsheets_config)
 
 # FUNGSI MEMBACA DATA
 def load_data():
@@ -39,12 +39,12 @@ df_jadwal = load_data()
 if df_jadwal is not None and not df_jadwal.empty:
     st.subheader("📋 Jadwal Kunjungan Terbaru")
     
-    # Menampilkan tabel data
+    # Menampilkan kolom-kolom utama jika ada
     display_cols = [col for col in ["TANGGAL_TEXT", "SEKOLAH", "PIC", "JUMLAH", "KATEGORI", "KETERANGAN"] if col in df_jadwal.columns]
     
     if display_cols:
         st.dataframe(df_jadwal[display_cols].fillna("-"), use_container_width=True, hide_index=True)
     else:
-        st.dataframe(df_jadwal, use_container_width=True, hide_index=True)
+        st.dataframe(df_jadwal.fillna("-"), use_container_width=True, hide_index=True)
 else:
     st.info("Belum ada data jadwal kunjungan yang terdaftar.")
