@@ -5,7 +5,6 @@ from streamlit_gsheets import GSheetsConnection
 
 # -------------------------------------------------------------
 # KONFIGURASI SPREADSHEET
-# Ganti dengan URL Google Sheet Anda
 # -------------------------------------------------------------
 SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1XsYvF0pcBYjRm-h_oPf2jag3OwUFLK43bhRoyE-yh-M/edit"
 
@@ -71,12 +70,23 @@ def load_data():
         return []
 
 def save_data(data):
-    df = pd.DataFrame(data)
+    # Kolom default agar Google Sheets/gspread tidak error saat data kosong
+    default_columns = [
+        "TIPE", "TANGGAL_DATE", "HARI_RUTIN", "TANGGAL_TEXT", 
+        "SEKOLAH", "PIC", "JUMLAH", "KETERANGAN", "KATEGORI"
+    ]
+    
+    if not data or len(data) == 0:
+        df = pd.DataFrame(columns=default_columns)
+    else:
+        df = pd.DataFrame(data)
+
     if not df.empty:
         if "TANGGAL_DATE" in df.columns:
             df["TANGGAL_DATE"] = df["TANGGAL_DATE"].astype(str)
         if "HARI_RUTIN" in df.columns:
             df["HARI_RUTIN"] = df["HARI_RUTIN"].astype(str)
+            
     conn.update(spreadsheet=SPREADSHEET_URL, data=df)
 
 if 'temp_dates' not in st.session_state:
@@ -160,6 +170,9 @@ if password == "staf123":
                         added_count = 0
 
                         jumlah_clean = clean_text(jumlah_in)
+                        if str(jumlah_clean).endswith(".0"):
+                            jumlah_clean = str(jumlah_clean).replace(".0", "")
+
                         ket_clean = clean_text(ket_in)
                         kategori_clean = clean_text(kategori_in, "Sekolah")
 
@@ -257,7 +270,10 @@ if password == "staf123":
                             tgl_val = row.get("TANGGAL", "")
                             sekolah_val = clean_text(row.get("SEKOLAH"), "")
                             pic_val = clean_text(row.get("PIC"))
-                            jumlah_val = clean_text(row.get("JUMLAH"))
+                            
+                            jumlah_raw = clean_text(row.get("JUMLAH"))
+                            jumlah_val = str(jumlah_raw).replace(".0", "") if str(jumlah_raw).endswith(".0") else jumlah_raw
+                            
                             ket_val = clean_text(row.get("KETERANGAN"))
                             kategori_val = clean_text(row.get("KATEGORI"), "Sekolah")
 
@@ -331,11 +347,15 @@ if password == "staf123":
 
             table_data = []
             for item in jadwal_sorted:
+                jml_str = clean_text(item.get("JUMLAH"))
+                if jml_str.endswith(".0"):
+                    jml_str = jml_str.replace(".0", "")
+
                 table_data.append({
                     "Tanggal": clean_text(item.get("TANGGAL_TEXT")),
                     "Sekolah / Grup": clean_text(item.get("SEKOLAH")),
                     "PIC": clean_text(item.get("PIC")),
-                    "Jumlah": clean_text(item.get("JUMLAH")),
+                    "Jumlah": jml_str,
                     "Kategori": clean_text(item.get("KATEGORI")),
                     "Keterangan": clean_text(item.get("KETERANGAN"))
                 })
