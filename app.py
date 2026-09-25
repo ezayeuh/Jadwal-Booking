@@ -24,7 +24,7 @@ def load_data():
         df = conn.read(spreadsheet=SPREADSHEET_URL, ttl=0)
         if df.empty:
             return []
-        
+
         data = df.to_dict(orient="records")
         for item in data:
             # Format TANGGAL_DATE
@@ -208,7 +208,7 @@ for idx, col in enumerate(cols_days):
     curr_date = start_of_week + timedelta(days=idx)
     hari_nama = hari_names[idx]
     is_today = (curr_date == today_date)
-    
+
     # Filter agenda yang sesuai dengan tanggal/hari
     events_today = []
     for item in jadwal_data:
@@ -220,13 +220,13 @@ for idx, col in enumerate(cols_days):
                 events_today.append(item)
 
     card_class = "day-card-today" if is_today else "day-card"
-    
+
     with col:
         # Header Kolom Hari
         header_html = f"<div><b>{hari_nama}</b> <span style='float: right; color: #64748b; font-size: 12px;'>{curr_date.strftime('%d/%m')}</span></div>"
         if is_today:
             header_html += "<span class='today-badge'>HARI INI</span>"
-            
+
         header_html += "<hr style='margin: 8px 0; border: none; border-top: 1px solid #e2e8f0;'>"
 
         # Daftar Kunjungan
@@ -235,8 +235,12 @@ for idx, col in enumerate(cols_days):
             for ev in events_today:
                 sekolah = ev.get("SEKOLAH", "-")
                 pic = ev.get("PIC", "-")
-                jumlah = ev.get("JUMLAH", "-")
                 
+                # Modifikasi penghapusan desimal .0 pada nilai JUMLAH
+                jumlah = str(ev.get("JUMLAH", "-"))
+                if jumlah.endswith(".0"):
+                    jumlah = jumlah.replace(".0", "")
+
                 content_html += f"""
                 <div class="event-card">
                     <strong style="color: #0284c7; font-size: 13px;">{sekolah}</strong><br>
