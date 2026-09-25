@@ -1,8 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime, date
-import json
-import os
+from streamlit_gsheets import GSheetsConnection
 
 # 1. KONFIGURASI HALAMAN
 st.set_page_config(
@@ -12,7 +11,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# SEMBUNYIKAN SIDEBAR DAN TOMBOL NAVIGASI DENGAN CSS
+# SEMBUNYIKAN SIDEBAR TOTAL
 st.markdown("""
 <style>
     [data-testid="stSidebar"] {
@@ -27,7 +26,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-DB_FILE = "jadwal.json"
+# KONEKSI GOOGLE SHEETS
+conn = st.connection("gsheets", type=GSheetsConnection)
 
 def clean_text(value, default="-"):
     if pd.isna(value) or value is None:
@@ -38,27 +38,40 @@ def clean_text(value, default="-"):
     return val_str
 
 def load_data():
-    if os.path.exists(DB_FILE):
-        try:
-            with open(DB_FILE, "r") as f:
-                data = json.load(f)
-                for item in data:
-                    if item.get("TANGGAL_DATE"):
-                        item["TANGGAL_DATE"] = date.fromisoformat(item["TANGGAL_DATE"])
-                return data
-        except Exception:
+    try:
+        df = conn.read(ttl=0)
+        if df.empty:
             return []
-    return []
+        data = df.to_dict(orient="records")
+        for item in data:
+            if item.get("TANGGAL_DATE") and pd.notna(item["TANGGAL_DATE"]):
+                try:
+                    item["TANGGAL_DATE"] = date.fromisoformat(str(item["TANGGAL_DATE"]).split(" ")[0])
+                except Exception:
+                    item["TANGGAL_DATE"] = None
+            else:
+                item["TANGGAL_DATE"] = None
+                
+            if isinstance(item.get("HARI_RUTIN"), str):
+                try:
+                    item["HARI_RUTIN"] = eval(item["HARI_RUTIN"])
+                except Exception:
+                    item["HARI_RUTIN"] = []
+            elif not isinstance(item.get("HARI_RUTIN"), list):
+                item["HARI_RUTIN"] = []
+                
+        return data
+    except Exception:
+        return []
 
 def save_data(data):
-    data_to_save = []
-    for item in data:
-        item_copy = item.copy()
-        if isinstance(item_copy.get("TANGGAL_DATE"), date):
-            item_copy["TANGGAL_DATE"] = item_copy["TANGGAL_DATE"].isoformat()
-        data_to_save.append(item_copy)
-    with open(DB_FILE, "w") as f:
-        json.dump(data_to_save, f, indent=4)
+    df = pd.DataFrame(data)
+    if not df.empty:
+        if "TANGGAL_DATE" in df.columns:
+            df["TANGGAL_DATE"] = df["TANGGAL_DATE"].astype(str)
+        if "HARI_RUTIN" in df.columns:
+            df["HARI_RUTIN"] = df["HARI_RUTIN"].astype(str)
+    conn.update(data=df)
 
 if 'temp_dates' not in st.session_state:
     st.session_state.temp_dates = []
@@ -164,7 +177,7 @@ if password == "staf123":
                                     
                                     match_idx = -1
                                     for idx_e, existing in enumerate(jadwal_kunjungan):
-                                        if existing.get("SEKOLAH").lower() == sekolah_clean.lower() and existing.get("TANGGAL_DATE") == d:
+                                        if str(existing.get("SEKOLAH")).lower() == sekolah_clean.lower() and existing.get("TANGGAL_DATE") == d:
                                             match_idx = idx_e
                                             break
                                             
@@ -177,7 +190,7 @@ if password == "staf123":
                                         
                                 save_data(jadwal_kunjungan)
                                 st.session_state.temp_dates = []
-                                st.success(f"✅ Berhasil! Data Baru: {added_count}, Diperbarui: {updated_count}")
+                                st.success(f"✅ Berhasil Terhubung ke Google Sheet! Data Baru: {added_count}, Diperbarui: {updated_count}")
                                 st.rerun()
                         else:
                             tgl_text = f"Setiap {', '.join(hari_rutin_selected)}"
@@ -197,7 +210,7 @@ if password == "staf123":
                             
                             match_idx = -1
                             for idx_e, existing in enumerate(jadwal_kunjungan):
-                                if existing.get("SEKOLAH").lower() == sekolah_clean.lower() and existing.get("TIPE") == "Hari Rutin / Berulang":
+                                if str(existing.get("SEKOLAH")).lower() == sekolah_clean.lower() and existing.get("TIPE") == "Hari Rutin / Berulang":
                                     match_idx = idx_e
                                     break
                                     
@@ -278,7 +291,7 @@ if password == "staf123":
                             
                             match_index = -1
                             for idx_exist, exist_item in enumerate(jadwal_kunjungan):
-                                same_school = exist_item.get("SEKOLAH", "").lower() == sekolah_val.lower()
+                                same_school = str(exist_item.get("SEKOLAH")).lower() == sekolah_val.lower()
                                 same_date = (exist_item.get("TANGGAL_DATE") == tgl_parsed) if tgl_parsed else (exist_item.get("TANGGAL_TEXT") == tgl_text_val)
                                 
                                 if same_school and same_date:
@@ -293,7 +306,7 @@ if password == "staf123":
                                 count_added += 1
                             
                         save_data(jadwal_kunjungan)
-                        st.success(f"✅ Impor Selesai! Data Baru: {count_added} | Data Diperbarui: {count_updated}")
+                        st.success(f"✅ Data Tersimpan Permanen di Google Sheet! Data Baru: {count_added} | Diperbarui: {count_updated}")
                         st.rerun()
                 except Exception as e:
                     st.error(f"Gagal membaca file. Pastikan format kolom sesuai. Error: {e}")
@@ -337,13 +350,13 @@ if password == "staf123":
                     target_item = jadwal_sorted[idx_del]
                     jadwal_kunjungan.remove(target_item)
                     save_data(jadwal_kunjungan)
-                    st.success(f"Jadwal '{target_item['SEKOLAH']}' berhasil dihapus!")
+                    st.success(f"Jadwal '{target_item['SEKOLAH']}' berhasil dihapus dari Google Sheets!")
                     st.rerun()
                     
             with c_del2:
                 if st.button("🗑️ Hapus Semua Data", type="secondary", use_container_width=True):
                     save_data([])
-                    st.success("Seluruh jadwal berhasil dihapus!")
+                    st.success("Seluruh jadwal di Google Sheet berhasil dikosongkan!")
                     st.rerun()
 
 elif password:
