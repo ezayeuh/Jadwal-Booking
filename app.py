@@ -5,7 +5,6 @@ from streamlit_gsheets import GSheetsConnection
 
 # -------------------------------------------------------------
 # KONFIGURASI SPREADSHEET
-# Ganti dengan URL Google Sheet Anda
 # -------------------------------------------------------------
 SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1XsYvF0pcBYjRm-h_oPf2jag3OwUFLK43bhRoyE-yh-M/edit"
 
@@ -22,27 +21,29 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 def load_data():
     try:
         df = conn.read(spreadsheet=SPREADSHEET_URL, ttl=0)
-        if df.empty:
+        if df is None or df.empty:
             return []
 
         data = df.to_dict(orient="records")
         for item in data:
-            # Format TANGGAL_DATE
-            if item.get("TANGGAL_DATE") and pd.notna(item["TANGGAL_DATE"]):
+            # Safe conversion untuk TANGGAL_DATE
+            tgl_raw = item.get("TANGGAL_DATE")
+            if pd.notna(tgl_raw) and tgl_raw:
                 try:
-                    item["TANGGAL_DATE"] = date.fromisoformat(str(item["TANGGAL_DATE"]).split(" ")[0])
+                    item["TANGGAL_DATE"] = date.fromisoformat(str(tgl_raw).split(" ")[0])
                 except Exception:
                     item["TANGGAL_DATE"] = None
             else:
                 item["TANGGAL_DATE"] = None
 
-            # Format HARI_RUTIN
-            if isinstance(item.get("HARI_RUTIN"), str):
+            # Safe conversion untuk HARI_RUTIN
+            hr_raw = item.get("HARI_RUTIN")
+            if isinstance(hr_raw, str):
                 try:
-                    item["HARI_RUTIN"] = eval(item["HARI_RUTIN"])
+                    item["HARI_RUTIN"] = eval(hr_raw)
                 except Exception:
-                    item["HARI_RUTIN"] = [item["HARI_RUTIN"]] if item["HARI_RUTIN"] else []
-            elif not isinstance(item.get("HARI_RUTIN"), list):
+                    item["HARI_RUTIN"] = [hr_raw] if hr_raw else []
+            elif not isinstance(hr_raw, list):
                 item["HARI_RUTIN"] = []
 
         return data
@@ -149,10 +150,10 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# 2. METRIK RINGKASAN
+# 2. METRIK RINGKASAN (Aman dari data None)
 tot_agenda = len(jadwal_data)
-tot_sekolah = sum(1 for item in jadwal_data if str(item.get("KATEGORI")).lower() == "sekolah")
-tot_rutin = sum(1 for item in jadwal_data if str(item.get("TIPE")).lower() == "hari rutin / berulang" or str(item.get("KATEGORI")).lower() == "kegiatan rutin")
+tot_sekolah = sum(1 for item in jadwal_data if str(item.get("KATEGORI", "")).lower() == "sekolah")
+tot_rutin = sum(1 for item in jadwal_data if str(item.get("TIPE", "")).lower() == "hari rutin / berulang" or str(item.get("KATEGORI", "")).lower() == "kegiatan rutin")
 
 col_m1, col_m2, col_m3 = st.columns(3)
 
@@ -187,7 +188,6 @@ col_filter, _ = st.columns([1.2, 2])
 with col_filter:
     filter_date = st.date_input("🗓️ Tampilkan Jadwal Minggu Dari Tanggal:", value=date.today())
 
-# Perhitungan rentang Senin - Minggu
 start_of_week = filter_date - timedelta(days=filter_date.weekday())
 end_of_week = start_of_week + timedelta(days=6)
 
@@ -209,35 +209,32 @@ for idx, col in enumerate(cols_days):
     hari_nama = hari_names[idx]
     is_today = (curr_date == today_date)
 
-    # Filter agenda yang sesuai dengan tanggal/hari
     events_today = []
     for item in jadwal_data:
         if item.get("TANGGAL_DATE") == curr_date:
             events_today.append(item)
-        elif item.get("TIPE") == "Hari Rutin / Berulang" or item.get("HARI_RUTIN"):
+        elif str(item.get("TIPE", "")) == "Hari Rutin / Berulang" or item.get("HARI_RUTIN"):
             rutin_list = item.get("HARI_RUTIN", [])
-            if hari_nama in rutin_list:
+            if isinstance(rutin_list, list) and hari_nama in rutin_list:
                 events_today.append(item)
 
     card_class = "day-card-today" if is_today else "day-card"
 
     with col:
-        # Header Kolom Hari
         header_html = f"<div><b>{hari_nama}</b> <span style='float: right; color: #64748b; font-size: 12px;'>{curr_date.strftime('%d/%m')}</span></div>"
         if is_today:
             header_html += "<span class='today-badge'>HARI INI</span>"
 
         header_html += "<hr style='margin: 8px 0; border: none; border-top: 1px solid #e2e8f0;'>"
 
-        # Daftar Kunjungan
         if events_today:
             content_html = ""
             for ev in events_today:
-                sekolah = ev.get("SEKOLAH", "-")
-                pic = ev.get("PIC", "-")
+                sekolah = ev.get("SEKOLAH") if pd.notna(ev.get("SEKOLAH")) else "-"
+                pic = ev.get("PIC") if pd.notna(ev.get("PIC")) else "-"
                 
-                # Modifikasi penghapusan desimal .0 pada nilai JUMLAH
-                jumlah = str(ev.get("JUMLAH", "-"))
+                jumlah_raw = ev.get("JUMLAH")
+                jumlah = str(jumlah_raw) if pd.notna(jumlah_raw) else "-"
                 if jumlah.endswith(".0"):
                     jumlah = jumlah.replace(".0", "")
 
