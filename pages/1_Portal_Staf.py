@@ -3,14 +3,6 @@ import pandas as pd
 from datetime import datetime, date
 from streamlit_gsheets import GSheetsConnection
 
-# -------------------------------------------------------------
-# SANITASI OTOMATIS PRIVATE KEY (Mencegah error RSA PEM)
-# -------------------------------------------------------------
-if "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
-    if "private_key" in st.secrets["connections"]["gsheets"]:
-        pkey = st.secrets["connections"]["gsheets"]["private_key"]
-        st.secrets["connections"]["gsheets"]["private_key"] = pkey.replace("\\n", "\n")
-
 # 1. KONFIGURASI HALAMAN
 st.set_page_config(
     page_title="Portal Staf - Kelola Jadwal",
@@ -34,8 +26,15 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# -------------------------------------------------------------
+# SANITASI PRIVATE KEY (Aman untuk st.secrets read-only)
+# -------------------------------------------------------------
+gsheets_config = dict(st.secrets.get("connections", {}).get("gsheets", {}))
+if "private_key" in gsheets_config:
+    gsheets_config["private_key"] = gsheets_config["private_key"].replace("\\n", "\n")
+
 # KONEKSI GOOGLE SHEETS
-conn = st.connection("gsheets", type=GSheetsConnection)
+conn = st.connection("gsheets", type=GSheetsConnection, **gsheets_config)
 
 def clean_text(value, default="-"):
     if pd.isna(value) or value is None:
