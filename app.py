@@ -150,7 +150,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# 2. METRIK RINGKASAN (Aman dari data None)
+# 2. METRIK RINGKASAN
 tot_agenda = len(jadwal_data)
 tot_sekolah = sum(1 for item in jadwal_data if str(item.get("KATEGORI", "")).lower() == "sekolah")
 tot_rutin = sum(1 for item in jadwal_data if str(item.get("TIPE", "")).lower() == "hari rutin / berulang" or str(item.get("KATEGORI", "")).lower() == "kegiatan rutin")
