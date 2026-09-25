@@ -2,6 +2,12 @@ import streamlit as st
 import pandas as pd
 from streamlit_gsheets import GSheetsConnection
 
+# -------------------------------------------------------------
+# KONFIGURASI SPREADSHEET
+# Ganti dengan URL Google Sheet Anda
+# -------------------------------------------------------------
+SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1XsYvF0pcBYjRm-h_oPf2jag3OwUFLK43bhRoyE-yh-M/edit"
+
 # 1. KONFIGURASI HALAMAN UTAMA
 st.set_page_config(
     page_title="Sistem Jadwal Kunjungan",
@@ -10,12 +16,11 @@ st.set_page_config(
 )
 
 # KONEKSI GOOGLE SHEETS
-# Langsung panggil tanpa parameter tambahan
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def load_data():
     try:
-        df = conn.read(ttl=0)
+        df = conn.read(spreadsheet=SPREADSHEET_URL, ttl=0)
         return df
     except Exception as e:
         st.error(f"Gagal memuat data dari Google Sheets: {e}")
