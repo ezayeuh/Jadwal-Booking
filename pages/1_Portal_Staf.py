@@ -26,15 +26,9 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# -------------------------------------------------------------
-# SANITASI PRIVATE KEY (Aman untuk st.secrets read-only)
-# -------------------------------------------------------------
-gsheets_config = dict(st.secrets.get("connections", {}).get("gsheets", {}))
-if "private_key" in gsheets_config:
-    gsheets_config["private_key"] = gsheets_config["private_key"].replace("\\n", "\n")
-
 # KONEKSI GOOGLE SHEETS
-conn = st.connection("gsheets", type=GSheetsConnection, **gsheets_config)
+# Menggunakan pemanggilan standar yang membaca dari Secrets TOML secara langsung
+conn = st.connection("gsheets", type=GSheetsConnection)
 
 def clean_text(value, default="-"):
     if pd.isna(value) or value is None:
@@ -58,7 +52,7 @@ def load_data():
                     item["TANGGAL_DATE"] = None
             else:
                 item["TANGGAL_DATE"] = None
-                
+
             if isinstance(item.get("HARI_RUTIN"), str):
                 try:
                     item["HARI_RUTIN"] = eval(item["HARI_RUTIN"])
@@ -66,7 +60,7 @@ def load_data():
                     item["HARI_RUTIN"] = []
             elif not isinstance(item.get("HARI_RUTIN"), list):
                 item["HARI_RUTIN"] = []
-                
+
         return data
     except Exception:
         return []
@@ -91,23 +85,23 @@ password = st.text_input("Password Staf:", type="password")
 if password == "staf123":
     st.success("Akses Staf Diverifikasi")
     st.markdown("---")
-    
+
     jadwal_kunjungan = load_data()
-    
+
     col_input, col_manage = st.columns([1, 1.1], gap="large")
-    
+
     with col_input:
         st.subheader("➕ Input Kunjungan")
-        
+
         tab_manual, tab_excel = st.tabs(["📝 Form Manual", "📊 Import Excel / CSV"])
-        
+
         # --- TAB 1: FORM MANUAL ---
         with tab_manual:
             tipe_kunjungan = st.radio("Metode Tanggal:", ["Pilih Bebas Beberapa Tanggal", "Hari Rutin / Berulang"])
-            
+
             selected_dates_final = []
             hari_rutin_selected = []
-            
+
             hari_map = {0: "Senin", 1: "Selasa", 2: "Rabu", 3: "Kamis", 4: "Jumat", 5: "Sabtu", 6: "Minggu"}
             bln_map = {1: "Jan", 2: "Feb", 3: "Mar", 4: "Apr", 5: "Mei", 6: "Jun", 7: "Jul", 8: "Agu", 9: "Sep", 10: "Okt", 11: "Nov", 12: "Des"}
 
@@ -132,7 +126,7 @@ if password == "staf123":
                     if st.button("🗑️ Hapus Pilihan Tanggal"):
                         st.session_state.temp_dates = []
                         st.rerun()
-                
+
                 selected_dates_final = st.session_state.temp_dates
             else:
                 hari_rutin_selected = st.multiselect(
@@ -155,15 +149,15 @@ if password == "staf123":
                 if submit_btn:
                     sekolah_clean = clean_text(sekolah_in, "")
                     pic_clean = clean_text(pic_in, "")
-                    
+
                     if sekolah_clean and pic_clean:
                         updated_count = 0
                         added_count = 0
-                        
+
                         jumlah_clean = clean_text(jumlah_in)
                         ket_clean = clean_text(ket_in)
                         kategori_clean = clean_text(kategori_in, "Sekolah")
-                        
+
                         if tipe_kunjungan == "Pilih Bebas Beberapa Tanggal":
                             if not selected_dates_final:
                                 st.error("⚠️ Pilih minimal 1 tanggal terlebih dahulu!")
@@ -181,20 +175,20 @@ if password == "staf123":
                                         "KETERANGAN": ket_clean,
                                         "KATEGORI": kategori_clean
                                     }
-                                    
+
                                     match_idx = -1
                                     for idx_e, existing in enumerate(jadwal_kunjungan):
                                         if str(existing.get("SEKOLAH")).lower() == sekolah_clean.lower() and existing.get("TANGGAL_DATE") == d:
                                             match_idx = idx_e
                                             break
-                                            
+
                                     if match_idx >= 0:
                                         jadwal_kunjungan[match_idx] = entry
                                         updated_count += 1
                                     else:
                                         jadwal_kunjungan.append(entry)
                                         added_count += 1
-                                        
+
                                 save_data(jadwal_kunjungan)
                                 st.session_state.temp_dates = []
                                 st.success(f"✅ Berhasil Terhubung ke Google Sheet! Data Baru: {added_count}, Diperbarui: {updated_count}")
@@ -214,18 +208,18 @@ if password == "staf123":
                                 "KETERANGAN": ket_clean,
                                 "KATEGORI": kategori_clean
                             }
-                            
+
                             match_idx = -1
                             for idx_e, existing in enumerate(jadwal_kunjungan):
                                 if str(existing.get("SEKOLAH")).lower() == sekolah_clean.lower() and existing.get("TIPE") == "Hari Rutin / Berulang":
                                     match_idx = idx_e
                                     break
-                                    
+
                             if match_idx >= 0:
                                 jadwal_kunjungan[match_idx] = entry
                             else:
                                 jadwal_kunjungan.append(entry)
-                                
+
                             save_data(jadwal_kunjungan)
                             st.success("✅ Jadwal rutin berhasil disimpan/diperbarui!")
                             st.rerun()
@@ -235,25 +229,25 @@ if password == "staf123":
         # --- TAB 2: IMPORT VIA EXCEL / CSV ---
         with tab_excel:
             st.caption("Unggah file Excel (.xlsx / .xls) atau CSV (.csv). Kolom kosong otomatis diisi '-'.")
-            
+
             uploaded_file = st.file_uploader("Pilih File Excel/CSV:", type=["xlsx", "xls", "csv"])
-            
+
             if uploaded_file is not None:
                 try:
                     if uploaded_file.name.endswith('.csv'):
                         df_excel = pd.read_csv(uploaded_file)
                     else:
                         df_excel = pd.read_excel(uploaded_file)
-                    
+
                     df_preview = df_excel.fillna("-")
                     st.write("**Pratinjau Data:**")
                     st.dataframe(df_preview, use_container_width=True)
-                    
+
                     if st.button("📥 Import & Perbarui Data", use_container_width=True):
                         count_added = 0
                         count_updated = 0
                         hari_names_list = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
-                        
+
                         for _, row in df_excel.iterrows():
                             tgl_val = row.get("TANGGAL", "")
                             sekolah_val = clean_text(row.get("SEKOLAH"), "")
@@ -261,22 +255,22 @@ if password == "staf123":
                             jumlah_val = clean_text(row.get("JUMLAH"))
                             ket_val = clean_text(row.get("KETERANGAN"))
                             kategori_val = clean_text(row.get("KATEGORI"), "Sekolah")
-                            
+
                             if not sekolah_val:
                                 continue
-                                
+
                             tgl_parsed = None
                             tipe_val = "Tanggal Spesifik"
                             hari_rutin_val = []
                             tgl_text_val = str(tgl_val)
-                            
+
                             try:
                                 if isinstance(tgl_val, (pd.Timestamp, datetime, date)):
                                     tgl_parsed = tgl_val.date() if isinstance(tgl_val, (pd.Timestamp, datetime)) else tgl_val
                                 else:
                                     tgl_str = str(tgl_val).split(" ")[0].strip()
                                     tgl_parsed = datetime.strptime(tgl_str, "%Y-%m-%d").date()
-                                
+
                                 tgl_text_val = f"{hari_map[tgl_parsed.weekday()]}, {tgl_parsed.day:02d} {bln_map[tgl_parsed.month]} {tgl_parsed.year}"
                             except Exception:
                                 tipe_val = "Hari Rutin / Berulang"
@@ -295,23 +289,23 @@ if password == "staf123":
                                 "KETERANGAN": ket_val,
                                 "KATEGORI": kategori_val
                             }
-                            
+
                             match_index = -1
                             for idx_exist, exist_item in enumerate(jadwal_kunjungan):
                                 same_school = str(exist_item.get("SEKOLAH")).lower() == sekolah_val.lower()
                                 same_date = (exist_item.get("TANGGAL_DATE") == tgl_parsed) if tgl_parsed else (exist_item.get("TANGGAL_TEXT") == tgl_text_val)
-                                
+
                                 if same_school and same_date:
                                     match_index = idx_exist
                                     break
-                            
+
                             if match_index >= 0:
                                 jadwal_kunjungan[match_index] = entry
                                 count_updated += 1
                             else:
                                 jadwal_kunjungan.append(entry)
                                 count_added += 1
-                            
+
                         save_data(jadwal_kunjungan)
                         st.success(f"✅ Data Tersimpan Permanen di Google Sheet! Data Baru: {count_added} | Diperbarui: {count_updated}")
                         st.rerun()
@@ -321,7 +315,7 @@ if password == "staf123":
     # --- KOLOM KANAN: KELOLA & TABEL JADWAL ---
     with col_manage:
         st.subheader("📋 Daftar Jadwal Tersimpan")
-        
+
         if not jadwal_kunjungan:
             st.info("Belum ada jadwal yang terdaftar.")
         else:
@@ -329,7 +323,7 @@ if password == "staf123":
                 jadwal_kunjungan,
                 key=lambda x: x.get("TANGGAL_DATE") if x.get("TANGGAL_DATE") else date(2099, 12, 31)
             )
-            
+
             table_data = []
             for item in jadwal_sorted:
                 table_data.append({
@@ -340,16 +334,16 @@ if password == "staf123":
                     "Kategori": clean_text(item.get("KATEGORI")),
                     "Keterangan": clean_text(item.get("KETERANGAN"))
                 })
-            
+
             df_display = pd.DataFrame(table_data)
             st.dataframe(df_display, use_container_width=True, hide_index=True)
-            
+
             st.markdown("---")
             st.write("**🗑️ Hapus Jadwal Spesifik:**")
-            
+
             options = [f"{item['SEKOLAH']} ({item['TANGGAL_TEXT']})" for item in jadwal_sorted]
             selected_option = st.selectbox("Pilih Jadwal Yang Ingin Dihapus:", options)
-            
+
             c_del1, c_del2 = st.columns([1, 1])
             with c_del1:
                 if st.button("❌ Hapus Jadwal Terpilih", use_container_width=True):
@@ -359,7 +353,7 @@ if password == "staf123":
                     save_data(jadwal_kunjungan)
                     st.success(f"Jadwal '{target_item['SEKOLAH']}' berhasil dihapus dari Google Sheets!")
                     st.rerun()
-                    
+
             with c_del2:
                 if st.button("🗑️ Hapus Semua Data", type="secondary", use_container_width=True):
                     save_data([])
