@@ -1,17 +1,18 @@
 import streamlit as st
 import pandas as pd
+from datetime import datetime, date, timedelta
 from streamlit_gsheets import GSheetsConnection
 
 # -------------------------------------------------------------
 # KONFIGURASI SPREADSHEET
 # Ganti dengan URL Google Sheet Anda
 # -------------------------------------------------------------
-SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1XsYvF0pcBYjRm-h_oPf2jag3OwUFLK43bhRoyE-yh-M/edit"
+SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d1XsYvF0pcBYjRm-h_oPf2jag3OwUFLK43bhRoyE-yh-M/edit"
 
 # 1. KONFIGURASI HALAMAN UTAMA
 st.set_page_config(
-    page_title="Sistem Jadwal Kunjungan",
-    page_icon="📅",
+    page_title="Papan Informasi Jadwal Kunjungan Kolam",
+    page_icon="🏊",
     layout="wide"
 )
 
@@ -21,26 +22,234 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 def load_data():
     try:
         df = conn.read(spreadsheet=SPREADSHEET_URL, ttl=0)
-        return df
+        if df.empty:
+            return []
+        
+        data = df.to_dict(orient="records")
+        for item in data:
+            # Format TANGGAL_DATE
+            if item.get("TANGGAL_DATE") and pd.notna(item["TANGGAL_DATE"]):
+                try:
+                    item["TANGGAL_DATE"] = date.fromisoformat(str(item["TANGGAL_DATE"]).split(" ")[0])
+                except Exception:
+                    item["TANGGAL_DATE"] = None
+            else:
+                item["TANGGAL_DATE"] = None
+
+            # Format HARI_RUTIN
+            if isinstance(item.get("HARI_RUTIN"), str):
+                try:
+                    item["HARI_RUTIN"] = eval(item["HARI_RUTIN"])
+                except Exception:
+                    item["HARI_RUTIN"] = [item["HARI_RUTIN"]] if item["HARI_RUTIN"] else []
+            elif not isinstance(item.get("HARI_RUTIN"), list):
+                item["HARI_RUTIN"] = []
+
+        return data
     except Exception as e:
         st.error(f"Gagal memuat data dari Google Sheets: {e}")
-        return None
+        return []
 
-# TAMPILAN UTAMA
-st.title("📅 Sistem Jadwal Kunjungan")
-st.caption("Selamat datang di portal informasi jadwal kunjungan.")
-st.markdown("---")
+# CSS DESAIN KUSTOM DASHBOARD
+st.markdown("""
+<style>
+    .banner {
+        background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+        color: white;
+        padding: 24px;
+        border-radius: 12px;
+        margin-bottom: 25px;
+    }
+    .banner h1 {
+        color: white !important;
+        font-size: 26px;
+        font-weight: 700;
+        margin: 0 0 8px 0;
+    }
+    .banner p {
+        color: #e0f2fe;
+        margin: 0;
+        font-size: 14px;
+    }
+    .metric-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 16px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    }
+    .metric-title {
+        font-size: 11px;
+        font-weight: 700;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 8px;
+    }
+    .metric-value {
+        font-size: 24px;
+        font-weight: 700;
+        color: #0f172a;
+    }
+    .day-card {
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 12px;
+        min-height: 280px;
+    }
+    .day-card-today {
+        background-color: #f0f9ff;
+        border: 2px solid #0284c7;
+        border-radius: 10px;
+        padding: 12px;
+        min-height: 280px;
+    }
+    .today-badge {
+        background-color: #0284c7;
+        color: white;
+        font-size: 10px;
+        font-weight: bold;
+        padding: 2px 6px;
+        border-radius: 4px;
+        display: inline-block;
+        margin-top: 4px;
+    }
+    .event-card {
+        background-color: #ffffff;
+        border-left: 4px solid #0284c7;
+        border-top: 1px solid #e2e8f0;
+        border-right: 1px solid #e2e8f0;
+        border-bottom: 1px solid #e2e8f0;
+        padding: 8px 10px;
+        margin-top: 8px;
+        border-radius: 6px;
+        font-size: 12px;
+    }
+    .empty-text {
+        color: #94a3b8;
+        font-size: 12px;
+        text-align: center;
+        margin-top: 50px;
+        font-style: italic;
+    }
+</style>
+""", unsafe_allow_html=True)
 
-df_jadwal = load_data()
+# -------------------------------------------------------------
+# MEMUAT DATA & TAMPILAN DASHBOARD
+# -------------------------------------------------------------
+jadwal_data = load_data()
 
-if df_jadwal is not None and not df_jadwal.empty:
-    st.subheader("📋 Jadwal Kunjungan Terbaru")
+# 1. BANNER UTAMA
+st.markdown("""
+<div class="banner">
+    <h1>🏊 Papan Informasi Jadwal Kunjungan Kolam</h1>
+    <p>Jadwal resmi kunjungan sekolah, grup, dan kegiatan rutin di area kolam renang</p>
+</div>
+""", unsafe_allow_html=True)
+
+# 2. METRIK RINGKASAN
+tot_agenda = len(jadwal_data)
+tot_sekolah = sum(1 for item in jadwal_data if str(item.get("KATEGORI")).lower() == "sekolah")
+tot_rutin = sum(1 for item in jadwal_data if str(item.get("TIPE")).lower() == "hari rutin / berulang" or str(item.get("KATEGORI")).lower() == "kegiatan rutin")
+
+col_m1, col_m2, col_m3 = st.columns(3)
+
+with col_m1:
+    st.markdown(f"""
+    <div class="metric-card">
+        <div class="metric-title">TOTAL AGENDA TERDAFTAR</div>
+        <div class="metric-value">{tot_agenda} <span style="font-size: 14px; font-weight: normal; color: #64748b;">Rombongan</span></div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col_m2:
+    st.markdown(f"""
+    <div class="metric-card">
+        <div class="metric-title">KUNJUNGAN SEKOLAH</div>
+        <div class="metric-value" style="color: #0284c7;">{tot_sekolah}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col_m3:
+    st.markdown(f"""
+    <div class="metric-card">
+        <div class="metric-title">KEGIATAN RUTIN</div>
+        <div class="metric-value" style="color: #16a34a;">{tot_rutin}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+# 3. FILTER TANGGAL MINGGUAN
+col_filter, _ = st.columns([1.2, 2])
+with col_filter:
+    filter_date = st.date_input("🗓️ Tampilkan Jadwal Minggu Dari Tanggal:", value=date.today())
+
+# Perhitungan rentang Senin - Minggu
+start_of_week = filter_date - timedelta(days=filter_date.weekday())
+end_of_week = start_of_week + timedelta(days=6)
+
+bln_indo = {1: "Jan", 2: "Feb", 3: "Mar", 4: "Apr", 5: "Mei", 6: "Jun", 7: "Jul", 8: "Agu", 9: "Sep", 10: "Okt", 11: "Nov", 12: "Des"}
+periode_str = f"{start_of_week.day} {bln_indo[start_of_week.month]} {start_of_week.year} s/d {end_of_week.day} {bln_indo[end_of_week.month]} {end_of_week.year}"
+
+st.markdown(f"**Periode Tampilan:** <span style='color: #0284c7; font-weight: bold;'>{periode_str}</span>", unsafe_allow_html=True)
+st.markdown("<br>", unsafe_allow_html=True)
+
+st.subheader("🗓️ Jadwal Kunjungan Minggu Ini")
+
+# 4. GRID TAMPILAN 7 HARI KALENDER
+cols_days = st.columns(7)
+hari_names = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
+today_date = date.today()
+
+for idx, col in enumerate(cols_days):
+    curr_date = start_of_week + timedelta(days=idx)
+    hari_nama = hari_names[idx]
+    is_today = (curr_date == today_date)
     
-    display_cols = [col for col in ["TANGGAL_TEXT", "SEKOLAH", "PIC", "JUMLAH", "KATEGORI", "KETERANGAN"] if col in df_jadwal.columns]
+    # Filter agenda yang sesuai dengan tanggal/hari
+    events_today = []
+    for item in jadwal_data:
+        if item.get("TANGGAL_DATE") == curr_date:
+            events_today.append(item)
+        elif item.get("TIPE") == "Hari Rutin / Berulang" or item.get("HARI_RUTIN"):
+            rutin_list = item.get("HARI_RUTIN", [])
+            if hari_nama in rutin_list:
+                events_today.append(item)
+
+    card_class = "day-card-today" if is_today else "day-card"
     
-    if display_cols:
-        st.dataframe(df_jadwal[display_cols].fillna("-"), use_container_width=True, hide_index=True)
-    else:
-        st.dataframe(df_jadwal.fillna("-"), use_container_width=True, hide_index=True)
-else:
-    st.info("Belum ada data jadwal kunjungan yang terdaftar.")
+    with col:
+        # Header Kolom Hari
+        header_html = f"<div><b>{hari_nama}</b> <span style='float: right; color: #64748b; font-size: 12px;'>{curr_date.strftime('%d/%m')}</span></div>"
+        if is_today:
+            header_html += "<span class='today-badge'>HARI INI</span>"
+            
+        header_html += "<hr style='margin: 8px 0; border: none; border-top: 1px solid #e2e8f0;'>"
+
+        # Daftar Kunjungan
+        if events_today:
+            content_html = ""
+            for ev in events_today:
+                sekolah = ev.get("SEKOLAH", "-")
+                pic = ev.get("PIC", "-")
+                jumlah = ev.get("JUMLAH", "-")
+                
+                content_html += f"""
+                <div class="event-card">
+                    <strong style="color: #0284c7; font-size: 13px;">{sekolah}</strong><br>
+                    <span style="color: #475569;">👤 {pic}</span><br>
+                    <span style="color: #475569;">👥 {jumlah}</span>
+                </div>
+                """
+        else:
+            content_html = "<div class='empty-text'>Tidak Ada Kunjungan</div>"
+
+        st.markdown(f"""
+        <div class="{card_class}">
+            {header_html}
+            {content_html}
+        </div>
+        """, unsafe_allow_html=True)
