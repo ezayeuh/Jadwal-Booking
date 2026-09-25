@@ -7,7 +7,7 @@ from streamlit_gsheets import GSheetsConnection
 # KONFIGURASI SPREADSHEET
 # Ganti dengan URL Google Sheet Anda
 # -------------------------------------------------------------
-SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d1XsYvF0pcBYjRm-h_oPf2jag3OwUFLK43bhRoyE-yh-M/edit"
+SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1XsYvF0pcBYjRm-h_oPf2jag3OwUFLK43bhRoyE-yh-M/edit"
 
 # 1. KONFIGURASI HALAMAN UTAMA
 st.set_page_config(
