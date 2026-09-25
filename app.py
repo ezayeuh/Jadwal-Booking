@@ -1,8 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta, date
-import json
-import os
+from streamlit_gsheets import GSheetsConnection
 
 # 1. KONFIGURASI HALAMAN
 st.set_page_config(
@@ -12,7 +11,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# SEMBUNYIKAN SIDEBAR DAN TOMBOL NAVIGASI DENGAN CSS
+# SEMBUNYIKAN SIDEBAR TOTAL
 st.markdown("""
 <style>
     [data-testid="stSidebar"] {
@@ -109,7 +108,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-DB_FILE = "jadwal.json"
+# KONEKSI GOOGLE SHEETS
+conn = st.connection("gsheets", type=GSheetsConnection)
 
 def clean_text(value, default="-"):
     if pd.isna(value) or value is None:
@@ -120,17 +120,31 @@ def clean_text(value, default="-"):
     return val_str
 
 def load_data():
-    if os.path.exists(DB_FILE):
-        try:
-            with open(DB_FILE, "r") as f:
-                data = json.load(f)
-                for item in data:
-                    if item.get("TANGGAL_DATE"):
-                        item["TANGGAL_DATE"] = date.fromisoformat(item["TANGGAL_DATE"])
-                return data
-        except Exception:
+    try:
+        df = conn.read(ttl=0)
+        if df.empty:
             return []
-    return []
+        data = df.to_dict(orient="records")
+        for item in data:
+            if item.get("TANGGAL_DATE") and pd.notna(item["TANGGAL_DATE"]):
+                try:
+                    item["TANGGAL_DATE"] = date.fromisoformat(str(item["TANGGAL_DATE"]).split(" ")[0])
+                except Exception:
+                    item["TANGGAL_DATE"] = None
+            else:
+                item["TANGGAL_DATE"] = None
+                
+            if isinstance(item.get("HARI_RUTIN"), str):
+                try:
+                    item["HARI_RUTIN"] = eval(item["HARI_RUTIN"])
+                except Exception:
+                    item["HARI_RUTIN"] = []
+            elif not isinstance(item.get("HARI_RUTIN"), list):
+                item["HARI_RUTIN"] = []
+                
+        return data
+    except Exception:
+        return []
 
 jadwal_kunjungan = load_data()
 
@@ -142,11 +156,11 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# RINGKASAN METRIK
+# METRIK
 m1, m2, m3 = st.columns(3)
 total_kunjungan = len(jadwal_kunjungan)
-total_sekolah = len([b for b in jadwal_kunjungan if b.get('KATEGORI') == 'Sekolah'])
-total_rutin = len([b for b in jadwal_kunjungan if b.get('KATEGORI') == 'Kegiatan Rutin'])
+total_sekolah = len([b for b in jadwal_kunjungan if str(b.get('KATEGORI')).strip() == 'Sekolah'])
+total_rutin = len([b for b in jadwal_kunjungan if str(b.get('KATEGORI')).strip() == 'Kegiatan Rutin'])
 
 with m1:
     st.markdown(f'<div class="stat-card"><div class="stat-label">Total Agenda Terdaftar</div><div class="stat-value">{total_kunjungan} <span style="font-size:0.85rem; color:#64748b; font-weight:400;">Rombongan</span></div></div>', unsafe_allow_html=True)
@@ -196,11 +210,11 @@ for idx, day_date in enumerate(week_days):
             for mb in matching:
                 badge_style = "cat-sekolah" if mb.get("KATEGORI") == "Sekolah" else ("cat-rutin" if mb.get("KATEGORI") == "Kegiatan Rutin" else "cat-umum")
                 cards_html += f"""<div class="visit-card">
-                    <div class="school-title">{clean_text(mb['SEKOLAH'])}</div>
-                    <div class="text-muted">👥 {clean_text(mb['JUMLAH'])}</div>
-                    <div class="text-muted">📞 {clean_text(mb['PIC'])}</div>
-                    <div class="text-muted">📌 {clean_text(mb['KETERANGAN'])}</div>
-                    <span class="cat-badge {badge_style}">{clean_text(mb['KATEGORI'])}</span>
+                    <div class="school-title">{clean_text(mb.get('SEKOLAH'))}</div>
+                    <div class="text-muted">👥 {clean_text(mb.get('JUMLAH'))}</div>
+                    <div class="text-muted">📞 {clean_text(mb.get('PIC'))}</div>
+                    <div class="text-muted">📌 {clean_text(mb.get('KETERANGAN'))}</div>
+                    <span class="cat-badge {badge_style}">{clean_text(mb.get('KATEGORI'))}</span>
                 </div>"""
         else:
             cards_html = '<div class="text-muted" style="text-align:center; margin-top:20px; font-style:italic;">Tidak Ada Kunjungan</div>'
