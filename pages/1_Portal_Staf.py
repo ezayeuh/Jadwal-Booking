@@ -3,6 +3,14 @@ import pandas as pd
 from datetime import datetime, date
 from streamlit_gsheets import GSheetsConnection
 
+# -------------------------------------------------------------
+# SANITASI OTOMATIS PRIVATE KEY (Mencegah error RSA PEM)
+# -------------------------------------------------------------
+if "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
+    if "private_key" in st.secrets["connections"]["gsheets"]:
+        pkey = st.secrets["connections"]["gsheets"]["private_key"]
+        st.secrets["connections"]["gsheets"]["private_key"] = pkey.replace("\\n", "\n")
+
 # 1. KONFIGURASI HALAMAN
 st.set_page_config(
     page_title="Portal Staf - Kelola Jadwal",
