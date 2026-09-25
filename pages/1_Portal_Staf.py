@@ -45,7 +45,7 @@ def clean_text(value, default="-"):
 def load_data():
     try:
         df = conn.read(spreadsheet=SPREADSHEET_URL, ttl=0)
-        if df.empty:
+        if df is None or df.empty:
             return []
         data = df.to_dict(orient="records")
         for item in data:
@@ -70,7 +70,7 @@ def load_data():
         return []
 
 def save_data(data):
-    # Kolom default agar Google Sheets/gspread tidak error saat data kosong
+    # Kolom default tanpa WAKTU
     default_columns = [
         "TIPE", "TANGGAL_DATE", "HARI_RUTIN", "TANGGAL_TEXT", 
         "SEKOLAH", "PIC", "JUMLAH", "KETERANGAN", "KATEGORI"
@@ -209,7 +209,7 @@ if password == "staf123":
 
                                 save_data(jadwal_kunjungan)
                                 st.session_state.temp_dates = []
-                                st.success(f"✅ Berhasil Terhubung ke Google Sheet! Data Baru: {added_count}, Diperbarui: {updated_count}")
+                                st.success(f"✅ Berhasil Disimpan ke Google Sheet! Data Baru: {added_count}, Diperbarui: {updated_count}")
                                 st.rerun()
                         else:
                             tgl_text = f"Setiap {', '.join(hari_rutin_selected)}"
