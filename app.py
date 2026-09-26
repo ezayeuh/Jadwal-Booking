@@ -15,6 +15,16 @@ st.set_page_config(
 if 'selected_date' not in st.session_state:
     st.session_state.selected_date = date.today()
 
+# Tangkap klik tanggal dari tabel kalender HTML secara instan
+query_params = st.query_params
+if "pilih_tgl" in query_params:
+    try:
+        parsed_tgl = date.fromisoformat(str(query_params["pilih_tgl"]))
+        if st.session_state.selected_date != parsed_tgl:
+            st.session_state.selected_date = parsed_tgl
+    except Exception:
+        pass
+
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 HARI_INDO = {0: "Senin", 1: "Selasa", 2: "Rabu", 3: "Kamis", 4: "Jumat", 5: "Sabtu", 6: "Minggu"}
@@ -52,7 +62,7 @@ def load_data():
         st.error(f"Gagal memuat data: {e}")
         return []
 
-# CSS Grid Murni Tanpa Pecah di HP
+# CSS Tabel Kalender Murni 100% Anti-Turun ke Bawah di HP
 st.markdown("""
 <style>
     .banner {
@@ -62,36 +72,76 @@ st.markdown("""
     .banner h1 { color: white !important; font-size: 18px; font-weight: 700; margin: 0 0 3px 0; }
     .banner p { color: #e0f2fe; margin: 0; font-size: 11px; }
 
-    /* Memaksa kontainer kolom Streamlit jadi Grid 7 Kolom Sejati di Mobile */
-    [data-testid="stHorizontalBlock"] {
-        display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: nowrap !important;
-        gap: 2px !important;
+    /* Desain Tabel Kalender Kotak Murni */
+    .kalender-container {
+        width: 100%;
+        overflow-x: auto;
+        background: #ffffff;
+        border-radius: 10px;
+        padding: 5px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        border: 1px solid #cbd5e1;
     }
-    [data-testid="column"] {
-        flex: 1 1 14.28% !important;
-        min-width: 0 !important;
-        width: 14.28% !important;
-        padding: 0px !important;
+    .kalender-table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+    }
+    .kalender-table th {
+        color: #334155;
+        font-size: 11px;
+        padding: 6px 0;
+        text-align: center;
+        font-weight: bold;
+        width: 14.28%;
+        background-color: #f1f5f9;
+        border-bottom: 1px solid #cbd5e1;
+    }
+    .kalender-table td {
+        width: 14.28%;
+        height: 62px;
+        border: 1px solid #e2e8f0;
+        padding: 1px;
+        vertical-align: top;
+        text-align: center;
+        background-color: #f8fafc;
+    }
+    .kalender-table td.empty-cell {
+        background-color: #ffffff;
+    }
+    .kalender-table a {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        height: 100%;
+        text-decoration: none !important;
+        padding: 3px;
+        box-sizing: border-box;
+        border-radius: 4px;
+    }
+    .kalender-table a:hover {
+        background-color: #e0f2fe;
+    }
+    .cell-date {
+        font-size: 12px;
+        font-weight: bold;
+        color: #1e293b;
+    }
+    .cell-badge {
+        font-size: 7px;
+        padding: 2px 1px;
+        border-radius: 3px;
+        font-weight: bold;
+        text-align: center;
     }
     
-    /* Tombol Kalender Compact */
-    .stButton button {
-        width: 100% !important;
-        height: 52px !important;
-        border-radius: 4px !important;
-        font-size: 9px !important;
-        padding: 0px !important;
-        text-align: center !important;
-        line-height: 1.1 !important;
-        background-color: #f8fafc !important;
-        border: 1px solid #cbd5e1 !important;
-        color: #1e293b !important;
-    }
-    .stButton button:hover {
-        background-color: #e0f2fe !important;
-        border-color: #0284c7 !important;
+    .badge-booked { background-color: #fee2e2; color: #dc2626; border: 1px solid #f87171; }
+    .cell-booked-bg { background-color: #fff5f5 !important; }
+    .badge-empty { background-color: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; }
+    
+    .selected-box {
+        background-color: #bae6fd !important;
+        border: 2px solid #0284c7 !important;
     }
 
     .bubble-container {
@@ -112,7 +162,7 @@ st.markdown("""
 st.markdown("""
 <div class="banner">
     <h1>📅 Kalender Jadwal Kunjungan Kolam</h1>
-    <p>Sentuh tombol tanggal di bawah untuk melihat rincian jadwal secara instan.</p>
+    <p>Sentuh kotak tanggal di kalender bawah untuk melihat rincian jadwal.</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -128,7 +178,7 @@ with col_b2:
 
 bln_idx = list(BULAN_INDO.values()).index(bln_pilihan) + 1
 
-# Pemetaan Event
+# Pemetaan Event per Tanggal
 jml_hari_bulan = calendar.monthrange(thn_pilihan, bln_idx)[1]
 events_map = {date(thn_pilihan, bln_idx, d): [] for d in range(1, jml_hari_bulan + 1)}
 
@@ -153,36 +203,52 @@ calendar.setfirstweekday(calendar.SUNDAY)
 raw_weeks = calendar.monthcalendar(thn_pilihan, bln_idx)
 hari_names_singkat = ["Mgg", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"]
 
-# Header Hari
-cols_hdr = st.columns(7)
+# RENDER KELOMPOK TABEL HTML KALENDER MURNI (DIJAMIN 7 KOLOM SEJAJAR DI HP)
+html_table = "<div class='kalender-container'><table class='kalender-table'><thead><tr>"
 for i, h_name in enumerate(hari_names_singkat):
-    c_color = "#dc2626" if i == 0 else ("#16a34a" if i == 5 else "#334155")
-    with cols_hdr[i]:
-        st.markdown(f"<p style='text-align: center; font-weight: bold; color: {c_color}; margin-bottom: 2px; font-size: 11px;'>{h_name}</p>", unsafe_allow_html=True)
+    c_color = "color: #dc2626;" if i == 0 else ("color: #16a34a;" if i == 5 else "")
+    html_table += f"<th style='{c_color}'>{h_name}</th>"
+html_table += "</tr></thead><tbody>"
 
-# Render Tombol Kalender Baris demi Baris
-for week_idx, week in enumerate(raw_weeks):
-    cols = st.columns(7)
-    for day_idx, day in enumerate(week):
-        with cols[day_idx]:
-            if day == 0:
-                st.markdown("<div style='height: 52px;'></div>", unsafe_allow_html=True)
-            else:
-                curr_date = date(thn_pilihan, bln_idx, day)
-                jml_ev = len(events_map[curr_date])
-                
-                if jml_ev > 0:
-                    btn_label = f"{day}\n🔴{jml_ev} Rmb"
-                else:
-                    btn_label = f"{day}\nKosong"
-                
-                # Tombol asli Streamlit dengan session state langsung (tanpa URL query param yang bikin bug)
-                if st.button(btn_label, key=f"btn_tgl_{week_idx}_{day_idx}_{day}"):
-                    st.session_state.selected_date = curr_date
+for week in raw_weeks:
+    html_table += "<tr>"
+    for day in week:
+        if day == 0:
+            html_table += "<td class='empty-cell'></td>"
+        else:
+            curr_date = date(thn_pilihan, bln_idx, day)
+            jml_ev = len(events_map[curr_date])
+            is_sel = (curr_date == st.session_state.selected_date)
+            
+            td_classes = []
+            if jml_ev > 0:
+                td_classes.append("cell-booked-bg")
+            if is_sel:
+                td_classes.append("selected-box")
+            
+            td_class_str = f" class='{' '.join(td_classes)}'" if td_classes else ""
+            
+            badge_cls = "badge-booked" if jml_ev > 0 else "badge-empty"
+            badge_txt = f"{jml_ev} Rombel" if jml_ev > 0 else "Kosong"
+            
+            html_table += f"""
+            <td{td_class_str}>
+                <a href="?pilih_tgl={curr_date.isoformat()}" target="_self">
+                    <span class="cell-date">{day}</span>
+                    <span class="cell-badge {badge_cls}">{badge_txt}</span>
+                </a>
+            </td>
+            """
+    html_table += "</tr>"
 
+html_table += "</tbody></table></div>"
+
+st.markdown(html_table, unsafe_allow_html=True)
 st.markdown("<br>", unsafe_allow_html=True)
 
-# Bagian Detail Rincian Tanggal Terpilih
+# -------------------------------------------------------------
+# BUBBLE RINCIAN JADWAL TANGGAL TERPILIH
+# -------------------------------------------------------------
 sel_date = st.session_state.selected_date
 sel_hari_nama = HARI_INDO[sel_date.weekday()]
 sel_bln_nama = BULAN_INDO[sel_date.month]
