@@ -115,32 +115,61 @@ calendar.setfirstweekday(calendar.SUNDAY)
 raw_weeks = calendar.monthcalendar(thn_pilihan, bln_idx)
 hari_names_singkat = ["Mgg", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"]
 
-html_code = "<style>.custom-cal-container a { text-decoration: none !important; } .cal-box { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 10px; padding: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); margin-bottom: 20px;} .cal-grid-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 4px; } .cal-th { text-align: center; font-weight: bold; font-size: 12px; padding: 4px 0; } .cal-cell { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; min-height: 56px; padding: 4px 2px; text-align: center; display: flex; flex-direction: column; justify-content: space-between; transition: 0.2s ease; cursor: pointer;} .cal-cell:hover { background-color: #f1f5f9; border-color: #0284c7; } .cell-empty { background-color: transparent; border: 1px solid transparent; min-height: 56px; } .cell-booked { background-color: #fef2f2 !important; border-color: #f87171 !important; } .cell-selected { border: 2px solid #0284c7 !important; background-color: #e0f2fe !important; } .c-num { font-size: 13px; font-weight: bold; color: #1e293b; } .c-badge { font-size: 9px; padding: 2px 0; border-radius: 3px; font-weight: bold; display: block; text-align: center; margin-top: 4px;} .badge-booked { background-color: #dc2626; color: white; } .badge-empty { background-color: #e2e8f0; color: #64748b; }</style>"
+html_code = """<style>
+.custom-cal-container a { text-decoration: none !important; } 
+.cal-box { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 10px; padding: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); margin-bottom: 20px;} 
+.cal-grid-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 4px; } 
+.cal-th { text-align: center; font-weight: bold; font-size: 12px; padding: 4px 0; } 
+.cal-cell { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; min-height: 56px; padding: 4px 2px; text-align: center; display: flex; flex-direction: column; justify-content: space-between; transition: 0.2s ease; cursor: pointer;} 
+.cal-cell:hover { background-color: #f1f5f9; border-color: #0284c7; } 
+.cell-empty { background-color: transparent; border: 1px solid transparent; min-height: 56px; } 
+.cell-weekend { background-color: #fef2f2 !important; border-color: #f87171 !important; } 
+.cell-booked { background-color: #e0f2fe !important; border-color: #0284c7 !important; } 
+.cell-selected { border: 2px solid #0f172a !important; box-shadow: 0 0 0 2px #38bdf8; } 
+.c-num { font-size: 13px; font-weight: bold; color: #1e293b; } 
+.c-badge { font-size: 9px; padding: 2px 0; border-radius: 3px; font-weight: bold; display: block; text-align: center; margin-top: 4px;} 
+.badge-weekend { background-color: #dc2626; color: white; } 
+.badge-booked { background-color: #0284c7; color: white; } 
+.badge-empty { background-color: #e2e8f0; color: #64748b; }
+</style>"""
+
 html_code += "<div class='custom-cal-container'><div class='cal-box'><div class='cal-grid-row'>"
 
 for i, h_name in enumerate(hari_names_singkat):
-    c_color = "#dc2626" if i == 0 else ("#16a34a" if i == 5 else "#334155")
+    c_color = "#dc2626" if i in [0, 6] else "#334155" # Merah untuk Mgg & Sab
     html_code += f"<div class='cal-th' style='color: {c_color};'>{h_name}</div>"
 html_code += "</div>"
 
 for week in raw_weeks:
     html_code += "<div class='cal-grid-row'>"
-    for day in week:
+    for idx_col, day in enumerate(week):
         if day == 0:
             html_code += "<div class='cell-empty'></div>"
         else:
             curr_date = date(thn_pilihan, bln_idx, day)
             jml_ev = len(events_map[curr_date])
+            is_weekend = (idx_col == 0 or idx_col == 6) # 0 = Minggu, 6 = Sabtu
             
             extra_cls = ""
+            badge_cls = "badge-empty"
+            badge_txt = "Kosong"
+            
             if jml_ev > 0:
-                extra_cls += " cell-booked"
+                badge_txt = f"{jml_ev} Agenda"
+                if is_weekend:
+                    extra_cls += " cell-weekend"
+                    badge_cls = "badge-weekend"
+                else:
+                    extra_cls += " cell-booked"
+                    badge_cls = "badge-booked"
+            else:
+                if is_weekend:
+                    extra_cls += " cell-weekend"
+                    badge_cls = "badge-weekend"
+            
             if curr_date == st.session_state.selected_date:
                 extra_cls += " cell-selected"
                 
-            badge_cls = "badge-booked" if jml_ev > 0 else "badge-empty"
-            badge_txt = f"{jml_ev} Rombel" if jml_ev > 0 else "Kosong"
-            
             html_code += f"<a href='#' id='{curr_date.isoformat()}' class='cal-cell{extra_cls}'><div class='c-num'>{day}</div><span class='c-badge {badge_cls}'>{badge_txt}</span></a>"
             
     html_code += "</div>"
