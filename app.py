@@ -111,9 +111,9 @@ for item in jadwal_data:
 # -------------------------------------------------------------
 st.markdown(f"### 🗓️ Bulan {bln_pilihan} {thn_pilihan}")
 
-calendar.setfirstweekday(calendar.SUNDAY)
+calendar.setfirstweekday(calendar.MONDAY) # Mulai dari Hari Senin
 raw_weeks = calendar.monthcalendar(thn_pilihan, bln_idx)
-hari_names_singkat = ["Mgg", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"]
+hari_names_singkat = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Mgg"]
 
 html_code = """<style>
 .custom-cal-container a { text-decoration: none !important; } 
@@ -136,7 +136,7 @@ html_code = """<style>
 html_code += "<div class='custom-cal-container'><div class='cal-box'><div class='cal-grid-row'>"
 
 for i, h_name in enumerate(hari_names_singkat):
-    c_color = "#dc2626" if i in [0, 6] else "#334155" # Merah untuk Mgg & Sab
+    c_color = "#dc2626" if i in [5, 6] else "#334155" # Merah untuk Sabtu (5) & Minggu (6)
     html_code += f"<div class='cal-th' style='color: {c_color};'>{h_name}</div>"
 html_code += "</div>"
 
@@ -148,7 +148,7 @@ for week in raw_weeks:
         else:
             curr_date = date(thn_pilihan, bln_idx, day)
             jml_ev = len(events_map[curr_date])
-            is_weekend = (idx_col == 0 or idx_col == 6) # 0 = Minggu, 6 = Sabtu
+            is_weekend = (idx_col in [5, 6]) # 5 = Sabtu, 6 = Minggu
             
             extra_cls = ""
             badge_cls = "badge-empty"
