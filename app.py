@@ -176,15 +176,13 @@ for item in jadwal_data:
         if isinstance(rutin_list, list) and sel_hari_nama in rutin_list:
             events_selected.append(item)
 
-# Merangkai seluruh HTML rincian ke dalam satu variabel agar tidak ada kotak kosong
-detail_html = """
-<style>
-    .bubble-container { background: #ffffff; border: 2px solid #0284c7; border-radius: 12px; padding: 18px; box-shadow: 0 4px 15px rgba(2, 132, 199, 0.15); margin-top: 5px; }
-    .event-item { background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #0284c7; padding: 10px 14px; margin-top: 10px; border-radius: 6px; }
-    .empty-bubble { background-color: #f1f5f9; border: 2px dashed #cbd5e1; padding: 15px; text-align: center; border-radius: 8px; color: #64748b; font-size: 13px; }
+# HTML diratakan ke kiri (tanpa indentasi) agar terbaca sebagai elemen HTML, bukan kode
+detail_html = """<style>
+.bubble-container { background: #ffffff; border: 2px solid #0284c7; border-radius: 12px; padding: 18px; box-shadow: 0 4px 15px rgba(2, 132, 199, 0.15); margin-top: 5px; }
+.event-item { background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #0284c7; padding: 10px 14px; margin-top: 10px; border-radius: 6px; }
+.empty-bubble { background-color: #f1f5f9; border: 2px dashed #cbd5e1; padding: 15px; text-align: center; border-radius: 8px; color: #64748b; font-size: 13px; }
 </style>
-<div class="bubble-container">
-"""
+<div class="bubble-container">"""
 
 if events_selected:
     detail_html += f"<p style='color: #0369a1; font-weight: bold; margin-bottom: 8px;'>Ditemukan {len(events_selected)} jadwal / kegiatan pada tanggal ini:</p>"
@@ -202,24 +200,20 @@ if events_selected:
         warna_badge = "#16a34a" if kategori.lower() == "kegiatan rutin" else "#0284c7"
 
         detail_html += f"""
-        <div class="event-item">
-            <div style="float: right; background-color: {warna_badge}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: bold;">
-                {kategori}
-            </div>
-            <div style="font-size: 15px; font-weight: bold; color: #0284c7; margin-bottom: 3px;">{sekolah}</div>
-            <div style="font-size: 12px; color: #475569;">👤 <b>PIC/Kontak:</b> {pic}</div>
-            <div style="font-size: 12px; color: #475569;">👥 <b>Jumlah:</b> {jumlah} Orang</div>
-            <div style="font-size: 11px; color: #64748b; font-style: italic; margin-top: 3px;">📝 Catatan: {ket}</div>
-        </div>
-        """
+<div class="event-item">
+<div style="float: right; background-color: {warna_badge}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: bold;">{kategori}</div>
+<div style="font-size: 15px; font-weight: bold; color: #0284c7; margin-bottom: 3px;">{sekolah}</div>
+<div style="font-size: 12px; color: #475569;">👤 <b>PIC/Kontak:</b> {pic}</div>
+<div style="font-size: 12px; color: #475569;">👥 <b>Jumlah:</b> {jumlah} Orang</div>
+<div style="font-size: 11px; color: #64748b; font-style: italic; margin-top: 3px;">📝 Catatan: {ket}</div>
+</div>"""
 else:
     detail_html += """
-    <div class="empty-bubble">
-        <div style="font-size: 20px; margin-bottom: 3px;">🏖️</div>
-        <b>Status: KOSONG</b><br>
-        Belum ada jadwal rombongan atau bookingan pada tanggal ini.
-    </div>
-    """
+<div class="empty-bubble">
+<div style="font-size: 20px; margin-bottom: 3px;">🏖️</div>
+<b>Status: KOSONG</b><br>
+Belum ada jadwal rombongan atau bookingan pada tanggal ini.
+</div>"""
 
 detail_html += "</div>"
 
