@@ -217,16 +217,22 @@ for idx, col in enumerate(cols_days):
                 events_today.append(item)
 
     card_class = "day-card-today" if is_today else "day-card"
+    
+    nama_bulan_singkat = BULAN_INDO[curr_date.month][:3]
+    tgl_format_jelas = f"{curr_date.day:02d} {nama_bulan_singkat}"
 
     with col:
-        badge_html = "<span class='today-badge'>HARI INI</span>" if is_today else ""
-        header_html = f"""<div class="{card_class}">
-<div><b>{hari_nama}</b> <span style='float: right; color: #64748b; font-size: 12px;'>{curr_date.strftime('%d/%m')}</span></div>
-{badge_html}
-<hr style='margin: 8px 0; border: none; border-top: 1px solid #e2e8f0;'>
+        html_str = f"""<div class="{card_class}">"""
+        
+        html_str += f"""<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+<b style="font-size: 16px;">{hari_nama}</b> 
+<span style="background-color: #f1f5f9; color: #475569; padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; border: 1px solid #e2e8f0;">{tgl_format_jelas}</span>
 </div>"""
         
-        st.markdown(header_html, unsafe_allow_html=True)
+        if is_today:
+            html_str += "<div><span class='today-badge'>HARI INI</span></div>"
+            
+        html_str += "<hr style='margin: 8px 0; border: none; border-top: 1px solid #e2e8f0;'>"
 
         if events_today:
             for ev in events_today:
@@ -238,11 +244,14 @@ for idx, col in enumerate(cols_days):
                 if jumlah.endswith(".0"):
                     jumlah = jumlah.replace(".0", "")
 
-                event_html = f"""<div class="event-card">
-<strong style="color: #0284c7; font-size: 13px;">{sekolah}</strong><br>
-<span style="color: #475569;">👤 {pic}</span><br>
-<span style="color: #475569;">👥 {jumlah}</span>
+                html_str += f"""<div class="event-card">
+<strong style="color: #0284c7; font-size: 14px;">{sekolah}</strong><br>
+<span style="color: #475569; font-size: 12px;">👤 {pic}</span><br>
+<span style="color: #475569; font-size: 12px;">👥 {jumlah} Orang</span>
 </div>"""
-                st.markdown(event_html, unsafe_allow_html=True)
         else:
-            st.markdown("<div class='empty-text'>Tidak Ada Kunjungan</div>", unsafe_allow_html=True)
+            html_str += "<div class='empty-text'>Tidak Ada Kunjungan</div>"
+
+        html_str += "</div>"
+
+        st.markdown(html_str, unsafe_allow_html=True)
