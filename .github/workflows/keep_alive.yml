@@ -1,0 +1,15 @@
+name: Keep Streamlit Alive
+
+on:
+  schedule:
+    # Berjalan jam 00:00 UTC (07:00 WIB) dan 12:00 UTC (19:00 WIB)
+    - cron: '0 0,12 * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Streamlit App
+        run: |
+          curl -sS https://jadwal-kunjungan.streamlit.app/ > /dev/null
