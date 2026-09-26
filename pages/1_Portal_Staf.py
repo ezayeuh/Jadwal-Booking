@@ -47,9 +47,8 @@ def load_data():
                 try:
                     parsed_date = date.fromisoformat(str(item["TANGGAL_DATE"]).split(" ")[0])
                     item["TANGGAL_DATE"] = parsed_date
-                    hari_str = HARI_INDO[parsed_date.weekday()]
-                    bln_str = BULAN_INDO[parsed_date.month]
-                    item["TANGGAL_TEXT"] = f"{hari_str}, {parsed_date.day:02d} {bln_str} {parsed_date.year}"
+                    # Format diubah menjadi DD-MM-YYYY
+                    item["TANGGAL_TEXT"] = parsed_date.strftime("%d-%m-%Y")
                 except Exception:
                     item["TANGGAL_DATE"] = None
             else:
@@ -71,7 +70,7 @@ def save_data(data):
         "TIPE", "TANGGAL_DATE", "HARI_RUTIN", "TANGGAL_TEXT", 
         "SEKOLAH", "PIC", "JUMLAH", "KETERANGAN", "KATEGORI"
     ]
-    
+
     if not data or len(data) == 0:
         df = pd.DataFrame(columns=default_columns)
     else:
@@ -82,7 +81,7 @@ def save_data(data):
             df["TANGGAL_DATE"] = df["TANGGAL_DATE"].astype(str)
         if "HARI_RUTIN" in df.columns:
             df["HARI_RUTIN"] = df["HARI_RUTIN"].astype(str)
-            
+
     conn.update(spreadsheet=SPREADSHEET_URL, data=df)
 
 if 'temp_dates' not in st.session_state:
@@ -128,7 +127,7 @@ if password == "staf123":
                 if st.session_state.temp_dates:
                     st.write("**Daftar Tanggal Terpilih:**")
                     for d_item in st.session_state.temp_dates:
-                        t_label = f"{HARI_INDO[d_item.weekday()]}, {d_item.day:02d} {BULAN_INDO[d_item.month]} {d_item.year}"
+                        t_label = d_item.strftime("%d-%m-%Y")
                         st.markdown(f"- 🗓️ `{t_label}`")
                     if st.button("🗑️ Hapus Pilihan Tanggal"):
                         st.session_state.temp_dates = []
@@ -171,7 +170,7 @@ if password == "staf123":
                                 st.error("⚠️ Pilih minimal 1 tanggal terlebih dahulu!")
                             else:
                                 for d in selected_dates_final:
-                                    tgl_text = f"{HARI_INDO[d.weekday()]}, {d.day:02d} {BULAN_INDO[d.month]} {d.year}"
+                                    tgl_text = d.strftime("%d-%m-%Y")
                                     entry = {
                                         "TIPE": "Tanggal Spesifik",
                                         "TANGGAL_DATE": d,
@@ -258,10 +257,10 @@ if password == "staf123":
                             tgl_val = row.get("TANGGAL", "")
                             sekolah_val = clean_text(row.get("SEKOLAH"), "")
                             pic_val = clean_text(row.get("PIC"))
-                            
+
                             jumlah_raw = clean_text(row.get("JUMLAH"))
                             jumlah_val = str(jumlah_raw).replace(".0", "") if str(jumlah_raw).endswith(".0") else jumlah_raw
-                            
+
                             ket_val = clean_text(row.get("KETERANGAN"))
                             kategori_val = clean_text(row.get("KATEGORI"), "Sekolah")
 
@@ -279,7 +278,7 @@ if password == "staf123":
                                 else:
                                     tgl_str = str(tgl_val).split(" ")[0].strip()
                                     tgl_parsed = datetime.strptime(tgl_str, "%Y-%m-%d").date()
-                                tgl_text_val = f"{HARI_INDO[tgl_parsed.weekday()]}, {tgl_parsed.day:02d} {BULAN_INDO[tgl_parsed.month]} {tgl_parsed.year}"
+                                tgl_text_val = tgl_parsed.strftime("%d-%m-%Y")
                             except Exception:
                                 tipe_val = "Hari Rutin / Berulang"
                                 for h_name in hari_names_list:
