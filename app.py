@@ -6,7 +6,7 @@ from streamlit_gsheets import GSheetsConnection
 from st_click_detector import click_detector
 
 # -------------------------------------------------------------
-# KONFIGURASI SPREADSHEET
+# KONFIGURASI SPREADSHEET & HALAMAN
 # -------------------------------------------------------------
 SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1XsYvF0pcBYjRm-h_oPf2jag3OwUFLK43bhRoyE-yh-M/edit"
 
@@ -15,6 +15,15 @@ st.set_page_config(
     page_icon="📅",
     layout="wide"
 )
+
+# Sembunyikan Sidebar / Navigasi Halaman di Dashboard Pengunjung
+st.markdown("""
+<style>
+    [data-testid="stSidebar"] {
+        display: none;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 # Inisialisasi State Tanggal
 if 'selected_date' not in st.session_state:
@@ -136,7 +145,7 @@ html_code = """<style>
 html_code += "<div class='custom-cal-container'><div class='cal-box'><div class='cal-grid-row'>"
 
 for i, h_name in enumerate(hari_names_singkat):
-    c_color = "#dc2626" if i in [5, 6] else "#334155" # Merah untuk Sabtu (5) & Minggu (6)
+    c_color = "#dc2626" if i in [5, 6] else "#334155" # Merah untuk Sabtu & Minggu
     html_code += f"<div class='cal-th' style='color: {c_color};'>{h_name}</div>"
 html_code += "</div>"
 
@@ -205,7 +214,7 @@ for item in jadwal_data:
         if isinstance(rutin_list, list) and sel_hari_nama in rutin_list:
             events_selected.append(item)
 
-# HTML diratakan ke kiri (tanpa indentasi) agar terbaca sebagai elemen HTML, bukan kode
+# HTML rincian
 detail_html = """<style>
 .bubble-container { background: #ffffff; border: 2px solid #0284c7; border-radius: 12px; padding: 18px; box-shadow: 0 4px 15px rgba(2, 132, 199, 0.15); margin-top: 5px; }
 .event-item { background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #0284c7; padding: 10px 14px; margin-top: 10px; border-radius: 6px; }
