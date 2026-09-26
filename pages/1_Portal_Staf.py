@@ -60,7 +60,6 @@ def load_data():
                 try:
                     parsed_date = date.fromisoformat(str(item["TANGGAL_DATE"]).split(" ")[0])
                     item["TANGGAL_DATE"] = parsed_date
-                    # Ubah TANGGAL_TEXT ke Bahasa Indonesia
                     hari_str = HARI_INDO[parsed_date.weekday()]
                     bln_str = BULAN_INDO[parsed_date.month]
                     item["TANGGAL_TEXT"] = f"{hari_str}, {parsed_date.day:02d} {bln_str} {parsed_date.year}"
