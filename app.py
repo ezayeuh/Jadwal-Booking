@@ -124,27 +124,9 @@ calendar.setfirstweekday(calendar.SUNDAY)
 raw_weeks = calendar.monthcalendar(thn_pilihan, bln_idx)
 hari_names_singkat = ["Mgg", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"]
 
-# CSS dibungkus khusus agar tidak merusak elemen Streamlit lainnya
-html_code = """
-<style>
-    .custom-cal-container a { text-decoration: none !important; }
-    .cal-box { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 10px; padding: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); margin-bottom: 20px;}
-    .cal-grid-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 4px; }
-    .cal-th { text-align: center; font-weight: bold; font-size: 12px; padding: 4px 0; }
-    .cal-cell { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; min-height: 56px; padding: 4px 2px; text-align: center; display: flex; flex-direction: column; justify-content: space-between; transition: 0.2s ease; cursor: pointer;}
-    .cal-cell:hover { background-color: #f1f5f9; border-color: #0284c7; }
-    .cell-empty { background-color: transparent; border: 1px solid transparent; min-height: 56px; }
-    .cell-booked { background-color: #fef2f2 !important; border-color: #f87171 !important; }
-    .cell-selected { border: 2px solid #0284c7 !important; background-color: #e0f2fe !important; }
-    .c-num { font-size: 13px; font-weight: bold; color: #1e293b; }
-    .c-badge { font-size: 9px; padding: 2px 0; border-radius: 3px; font-weight: bold; display: block; text-align: center; margin-top: 4px;}
-    .badge-booked { background-color: #dc2626; color: white; }
-    .badge-empty { background-color: #e2e8f0; color: #64748b; }
-</style>
-<div class='custom-cal-container'>
-<div class='cal-box'>
-<div class='cal-grid-row'>
-"""
+# Struktur CSS (Tanpa Indentasi yang berlebihan agar aman di Markdown)
+html_code = "<style>.custom-cal-container a { text-decoration: none !important; } .cal-box { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 10px; padding: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); margin-bottom: 20px;} .cal-grid-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 4px; } .cal-th { text-align: center; font-weight: bold; font-size: 12px; padding: 4px 0; } .cal-cell { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; min-height: 56px; padding: 4px 2px; text-align: center; display: flex; flex-direction: column; justify-content: space-between; transition: 0.2s ease; cursor: pointer;} .cal-cell:hover { background-color: #f1f5f9; border-color: #0284c7; } .cell-empty { background-color: transparent; border: 1px solid transparent; min-height: 56px; } .cell-booked { background-color: #fef2f2 !important; border-color: #f87171 !important; } .cell-selected { border: 2px solid #0284c7 !important; background-color: #e0f2fe !important; } .c-num { font-size: 13px; font-weight: bold; color: #1e293b; } .c-badge { font-size: 9px; padding: 2px 0; border-radius: 3px; font-weight: bold; display: block; text-align: center; margin-top: 4px;} .badge-booked { background-color: #dc2626; color: white; } .badge-empty { background-color: #e2e8f0; color: #64748b; }</style>"
+html_code += "<div class='custom-cal-container'><div class='cal-box'><div class='cal-grid-row'>"
 
 for i, h_name in enumerate(hari_names_singkat):
     c_color = "#dc2626" if i == 0 else ("#16a34a" if i == 5 else "#334155")
@@ -169,18 +151,14 @@ for week in raw_weeks:
             badge_cls = "badge-booked" if jml_ev > 0 else "badge-empty"
             badge_txt = f"{jml_ev} Rombel" if jml_ev > 0 else "Kosong"
             
-            # Target _self aman di sini karena tidak menggunakan iframe (langsung di root HTML)
-            html_code += f"""
-            <a href="?pilih_tgl={curr_date.isoformat()}" target="_self" class="cal-cell{extra_cls}">
-                <div class="c-num">{day}</div>
-                <span class="c-badge {badge_cls}">{badge_txt}</span>
-            </a>
-            """
+            # HTML diubah menjadi satu baris agar tidak dibaca sebagai Code Block oleh Markdown
+            html_code += f"<a href='?pilih_tgl={curr_date.isoformat()}' target='_self' class='cal-cell{extra_cls}'><div class='c-num'>{day}</div><span class='c-badge {badge_cls}'>{badge_txt}</span></a>"
+            
     html_code += "</div>"
 
 html_code += "</div></div>"
 
-# Render HTML langsung menggunakan Markdown (Tanpa Iframe)
+# Render HTML langsung menggunakan Markdown
 st.markdown(html_code, unsafe_allow_html=True)
 
 
