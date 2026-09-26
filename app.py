@@ -62,57 +62,74 @@ def load_data():
         st.error(f"Gagal memuat data dari Google Sheets: {e}")
         return []
 
+# CSS KHUSUS UNTUK MEMPERBAIKI TAMPILAN DI HP
 st.markdown("""
 <style>
     .banner {
         background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
         color: white;
-        padding: 24px;
+        padding: 20px;
         border-radius: 12px;
-        margin-bottom: 25px;
+        margin-bottom: 20px;
     }
-    .banner h1 {
-        color: white !important;
-        font-size: 26px;
-        font-weight: 700;
-        margin: 0 0 8px 0;
+    .banner h1 { color: white !important; font-size: 22px; font-weight: 700; margin: 0 0 5px 0; }
+    .banner p { color: #e0f2fe; margin: 0; font-size: 13px; }
+    
+    /* =========================================================
+       MAGIC CSS: MEMAKSA KOLOM STREAMLIT MENYAMPING DI HP 
+       ========================================================= */
+    [data-testid="stHorizontalBlock"] {
+        flex-wrap: nowrap !important; /* Mencegah kolom turun ke bawah */
+        gap: 2px !important; /* Jarak antar kolom diperkecil */
     }
-    .banner p {
-        color: #e0f2fe;
-        margin: 0;
-        font-size: 14px;
+    [data-testid="column"] {
+        width: 14.28% !important; /* 100% dibagi 7 hari */
+        min-width: 0 !important;
+        flex: 1 1 14.28% !important;
+        padding: 0 2px !important;
     }
+    
+    /* Menyesuaikan ukuran tombol agar muat dan rapi di HP */
+    .stButton > button {
+        padding: 0px !important;
+        min-height: 45px !important;
+        font-size: 13px !important;
+        width: 100% !important;
+        font-weight: bold !important;
+    }
+    
+    /* Mempercantik Header Hari (Sen, Sel, dll) */
+    .cal-header {
+        text-align: center;
+        font-weight: bold;
+        color: #334155;
+        padding-bottom: 5px;
+        border-bottom: 2px solid #e2e8f0;
+        margin-bottom: 5px;
+        font-size: 13px;
+    }
+
+    /* Styling Rincian Jadwal */
     .event-card {
         background-color: #ffffff;
         border-left: 5px solid #0284c7;
-        border-top: 1px solid #e2e8f0;
-        border-right: 1px solid #e2e8f0;
-        border-bottom: 1px solid #e2e8f0;
+        border: 1px solid #e2e8f0;
+        border-left-width: 5px;
         padding: 12px 16px;
         margin-bottom: 12px;
         border-radius: 8px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
-    .event-title { color: #0284c7; font-size: 18px; font-weight: bold; margin-bottom: 4px;}
-    .event-detail { color: #475569; font-size: 14px; margin-bottom: 2px;}
+    .event-title { color: #0284c7; font-size: 16px; font-weight: bold; margin-bottom: 4px;}
+    .event-detail { color: #475569; font-size: 13px; margin-bottom: 2px;}
     .empty-state {
         background-color: #f8fafc;
         border: 2px dashed #cbd5e1;
-        padding: 30px;
+        padding: 20px;
         text-align: center;
         border-radius: 10px;
         color: #64748b;
-        font-weight: 500;
-    }
-    
-    /* Mempercantik Header Hari Kalender */
-    .cal-header {
-        text-align: center;
-        font-weight: bold;
-        color: #334155;
-        padding-bottom: 10px;
-        border-bottom: 2px solid #e2e8f0;
-        margin-bottom: 10px;
+        font-size: 14px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -121,28 +138,27 @@ jadwal_data = load_data()
 
 st.markdown("""
 <div class="banner">
-    <h1>📅 Papan Kalender Kunjungan Kolam</h1>
-    <p>Pilih tanggal pada kalender di bawah untuk melihat rincian rombongan / kegiatan.</p>
+    <h1>📅 Kalender Kunjungan</h1>
+    <p>Pilih tanggal pada kalender di bawah untuk melihat rincian.</p>
 </div>
 """, unsafe_allow_html=True)
 
 # -------------------------------------------------------------
 # FILTER BULAN & TAHUN
 # -------------------------------------------------------------
-col_bln, col_thn, _ = st.columns([1, 1, 2])
+col_bln, col_thn = st.columns([1, 1])
 today_dt = date.today()
 
 with col_bln:
-    bln_pilihan = st.selectbox("Pilih Bulan:", list(BULAN_INDO.values()), index=today_dt.month - 1)
+    bln_pilihan = st.selectbox("Bulan:", list(BULAN_INDO.values()), index=today_dt.month - 1)
 with col_thn:
-    thn_pilihan = st.selectbox("Pilih Tahun:", range(2024, 2030), index=range(2024, 2030).index(today_dt.year))
+    thn_pilihan = st.selectbox("Tahun:", range(2024, 2030), index=range(2024, 2030).index(today_dt.year))
 
 bln_idx = list(BULAN_INDO.values()).index(bln_pilihan) + 1
 
 # -------------------------------------------------------------
 # PERSIAPAN DATA EVENT PER TANGGAL
 # -------------------------------------------------------------
-# Buat dictionary untuk memetakan tanggal -> [daftar jadwal]
 jml_hari_bulan = calendar.monthrange(thn_pilihan, bln_idx)[1]
 events_map = {date(thn_pilihan, bln_idx, d): [] for d in range(1, jml_hari_bulan + 1)}
 
@@ -150,7 +166,6 @@ for item in jadwal_data:
     tipe_str = str(item.get("TIPE", "")).lower()
     tgl_item = item.get("TANGGAL_DATE")
     
-    # Jika Hari Rutin, masukkan ke semua tanggal yang harinya cocok di bulan ini
     if tipe_str == "hari rutin / berulang" or item.get("HARI_RUTIN"):
         rutin_list = item.get("HARI_RUTIN", [])
         if isinstance(rutin_list, list):
@@ -159,25 +174,24 @@ for item in jadwal_data:
                 if hari_nama in rutin_list:
                     events_map[d].append(item)
                     
-    # Jika Tanggal Spesifik dan berada di bulan/tahun ini
     elif tgl_item and isinstance(tgl_item, date):
         if tgl_item.month == bln_idx and tgl_item.year == thn_pilihan:
-            # Cegah duplikasi jika sudah masuk di map
             if tgl_item in events_map:
                 events_map[tgl_item].append(item)
 
 # -------------------------------------------------------------
-# RENDER KALENDER INTERAKTIF
+# RENDER KALENDER INTERAKTIF (VERSI GRID HP)
 # -------------------------------------------------------------
-st.markdown(f"### 🗓️ Kalender Bulan {bln_pilihan} {thn_pilihan}")
+st.markdown(f"#### 🗓️ {bln_pilihan} {thn_pilihan}")
 
 cal_weeks = calendar.monthcalendar(thn_pilihan, bln_idx)
-hari_names = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
+# NAMA HARI DISINGKAT AGAR MUAT DI HP
+hari_names_singkat = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"]
 
 # Header Hari
 cols_header = st.columns(7)
 for i, col in enumerate(cols_header):
-    col.markdown(f"<div class='cal-header'>{hari_names[i]}</div>", unsafe_allow_html=True)
+    col.markdown(f"<div class='cal-header'>{hari_names_singkat[i]}</div>", unsafe_allow_html=True)
 
 # Grid Kalender
 for week in cal_weeks:
@@ -185,39 +199,30 @@ for week in cal_weeks:
     for i, day in enumerate(week):
         with cols_days[i]:
             if day == 0:
-                # Kotak kosong untuk tanggal bulan lain
-                st.write("")
+                # Kotak kosong untuk menyeimbangkan grid
+                st.markdown("<div style='min-height: 45px;'></div>", unsafe_allow_html=True)
             else:
                 curr_date = date(thn_pilihan, bln_idx, day)
                 jumlah_event = len(events_map[curr_date])
                 
-                # Jika ada bookingan jadikan tombol "primary" (Warna Aksen) 
-                # Jika kosong jadikan tombol "secondary" (Warna Netral)
+                # Warna Merah/Aksen jika ada bookingan, warna standar jika kosong
                 btn_type = "primary" if jumlah_event > 0 else "secondary"
                 
-                # Tambahkan titik indikator visual jika ada bookingan (opsional)
-                label_tombol = f"📅 {day}" if jumlah_event > 0 else f"{day}"
-                
-                # Render Tombol Tanggal
-                if st.button(label_tombol, key=f"btn_{curr_date}", type=btn_type, use_container_width=True):
-                    # Simpan tanggal yang diklik ke dalam session state
+                if st.button(str(day), key=f"btn_{curr_date}", type=btn_type, use_container_width=True):
                     st.session_state.selected_date = curr_date
 
-st.markdown("<hr style='margin: 30px 0; border: 1px solid #e2e8f0;'>", unsafe_allow_html=True)
+st.markdown("<hr style='margin: 20px 0; border: 1px solid #e2e8f0;'>", unsafe_allow_html=True)
 
 # -------------------------------------------------------------
 # RENDER DETAIL JADWAL YANG DIKLIK
 # -------------------------------------------------------------
-# Mengambil tanggal terpilih dari state
 sel_date = st.session_state.selected_date
 sel_hari_nama = HARI_INDO[sel_date.weekday()]
 sel_bln_nama = BULAN_INDO[sel_date.month]
 tgl_format_panjang = f"{sel_hari_nama}, {sel_date.day} {sel_bln_nama} {sel_date.year}"
 
-st.markdown(f"### 📌 Rincian Jadwal: <span style='color: #0284c7;'>{tgl_format_panjang}</span>", unsafe_allow_html=True)
+st.markdown(f"#### 📌 Rincian: <span style='color: #0284c7;'>{tgl_format_panjang}</span>", unsafe_allow_html=True)
 
-# Ambil event untuk tanggal terpilih
-# Kita hitung ulang eventnya secara real-time untuk tanggal yang dipilih agar aman
 events_selected = []
 for item in jadwal_data:
     tipe_str = str(item.get("TIPE", "")).lower()
@@ -229,7 +234,6 @@ for item in jadwal_data:
         if isinstance(rutin_list, list) and sel_hari_nama in rutin_list:
             events_selected.append(item)
 
-# Tampilkan Daftar Event
 if events_selected:
     for ev in events_selected:
         sekolah = ev.get("SEKOLAH", "-")
@@ -242,7 +246,6 @@ if events_selected:
         if jumlah.endswith(".0"):
             jumlah = jumlah.replace(".0", "")
             
-        # Label kategori warna-warni
         warna_kategori = "#16a34a" if kategori.lower() == "kegiatan rutin" else "#0284c7"
 
         st.markdown(f"""
@@ -259,8 +262,7 @@ if events_selected:
 else:
     st.markdown(f"""
     <div class="empty-state">
-        <div style="font-size: 30px; margin-bottom: 10px;">🏖️</div>
-        Belum ada jadwal / bookingan terdaftar untuk tanggal <b>{tgl_format_panjang}</b>.<br>
-        Kolam tersedia bebas!
+        <div style="font-size: 24px; margin-bottom: 5px;">🏖️</div>
+        Kosong / Tidak ada rombongan.
     </div>
     """, unsafe_allow_html=True)
