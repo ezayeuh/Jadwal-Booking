@@ -19,7 +19,7 @@ st.set_page_config(
 if 'selected_date' not in st.session_state:
     st.session_state.selected_date = date.today()
 
-# Menangani klik tanggal via query parameter (tetap dipertahankan untuk backup link share)
+# Menangani klik tanggal via query parameter di URL
 query_params = st.query_params
 if "pilih_tgl" in query_params:
     try:
@@ -116,78 +116,73 @@ for item in jadwal_data:
                 events_map[tgl_item].append(item)
 
 # -------------------------------------------------------------
-# RENDER KALENDER MENGGUNAKAN NATIVE STREAMLIT COMPONENT
+# RENDER KALENDER MENGGUNAKAN ST.MARKDOWN (Tanpa Iframe)
 # -------------------------------------------------------------
-# CSS Khusus untuk memaksa kolom kalender tidak bertumpuk ke bawah di layar HP
-st.markdown("""
-<style>
-@media (max-width: 600px) {
-    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) {
-        flex-direction: row !important;
-        flex-wrap: nowrap !important;
-        gap: 3px !important;
-    }
-    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) > div[data-testid="column"] {
-        width: 14.28% !important;
-        flex: 1 1 14.28% !important;
-        min-width: 0 !important;
-        padding: 0 1px !important;
-    }
-    div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) button {
-        padding: 0.2rem 0 !important;
-        font-size: 11px !important;
-    }
-}
-div[data-testid="stHorizontalBlock"]:has(> div:nth-child(7)) {
-    margin-bottom: -15px !important;
-}
-</style>
-""", unsafe_allow_html=True)
-
 st.markdown(f"### 🗓️ Bulan {bln_pilihan} {thn_pilihan}")
 
 calendar.setfirstweekday(calendar.SUNDAY)
 raw_weeks = calendar.monthcalendar(thn_pilihan, bln_idx)
 hari_names_singkat = ["Mgg", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"]
 
-# Render Header Hari
-cols = st.columns(7)
+# CSS dibungkus khusus agar tidak merusak elemen Streamlit lainnya
+html_code = """
+<style>
+    .custom-cal-container a { text-decoration: none !important; }
+    .cal-box { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 10px; padding: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); margin-bottom: 20px;}
+    .cal-grid-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 4px; }
+    .cal-th { text-align: center; font-weight: bold; font-size: 12px; padding: 4px 0; }
+    .cal-cell { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; min-height: 56px; padding: 4px 2px; text-align: center; display: flex; flex-direction: column; justify-content: space-between; transition: 0.2s ease; cursor: pointer;}
+    .cal-cell:hover { background-color: #f1f5f9; border-color: #0284c7; }
+    .cell-empty { background-color: transparent; border: 1px solid transparent; min-height: 56px; }
+    .cell-booked { background-color: #fef2f2 !important; border-color: #f87171 !important; }
+    .cell-selected { border: 2px solid #0284c7 !important; background-color: #e0f2fe !important; }
+    .c-num { font-size: 13px; font-weight: bold; color: #1e293b; }
+    .c-badge { font-size: 9px; padding: 2px 0; border-radius: 3px; font-weight: bold; display: block; text-align: center; margin-top: 4px;}
+    .badge-booked { background-color: #dc2626; color: white; }
+    .badge-empty { background-color: #e2e8f0; color: #64748b; }
+</style>
+<div class='custom-cal-container'>
+<div class='cal-box'>
+<div class='cal-grid-row'>
+"""
+
 for i, h_name in enumerate(hari_names_singkat):
-    with cols[i]:
-        c_color = "#dc2626" if i == 0 else ("#16a34a" if i == 5 else "#334155")
-        st.markdown(f"<div style='text-align: center; font-weight: bold; font-size: 13px; color: {c_color};'>{h_name}</div>", unsafe_allow_html=True)
+    c_color = "#dc2626" if i == 0 else ("#16a34a" if i == 5 else "#334155")
+    html_code += f"<div class='cal-th' style='color: {c_color};'>{h_name}</div>"
+html_code += "</div>"
 
-st.write("")
-
-# Render Grid Tombol Kalender
 for week in raw_weeks:
-    cols = st.columns(7)
-    for i, day in enumerate(week):
-        with cols[i]:
-            if day == 0:
-                st.markdown("<div style='height: 40px;'></div>", unsafe_allow_html=True)
-            else:
-                curr_date = date(thn_pilihan, bln_idx, day)
-                jml_ev = len(events_map[curr_date])
+    html_code += "<div class='cal-grid-row'>"
+    for day in week:
+        if day == 0:
+            html_code += "<div class='cell-empty'></div>"
+        else:
+            curr_date = date(thn_pilihan, bln_idx, day)
+            jml_ev = len(events_map[curr_date])
+            
+            extra_cls = ""
+            if jml_ev > 0:
+                extra_cls += " cell-booked"
+            if curr_date == st.session_state.selected_date:
+                extra_cls += " cell-selected"
                 
-                is_selected = (curr_date == st.session_state.selected_date)
-                
-                # Desain Label Tombol (Beri penanda jika dipilih)
-                if is_selected:
-                    lbl = f"📍 {day}"
-                else:
-                    lbl = str(day)
-                    
-                # Warna Tombol: Primary (berwarna) jika ada event, Secondary (polos) jika kosong
-                b_type = "primary" if jml_ev > 0 else "secondary"
-                tooltip = f"{jml_ev} Rombel / Kegiatan" if jml_ev > 0 else "Kosong"
-                
-                # Fungsi Rerun Instan tanpa mengubah URL
-                if st.button(lbl, key=f"btn_{curr_date}", help=tooltip, use_container_width=True, type=b_type):
-                    st.session_state.selected_date = curr_date
-                    st.rerun()
+            badge_cls = "badge-booked" if jml_ev > 0 else "badge-empty"
+            badge_txt = f"{jml_ev} Rombel" if jml_ev > 0 else "Kosong"
+            
+            # Target _self aman di sini karena tidak menggunakan iframe (langsung di root HTML)
+            html_code += f"""
+            <a href="?pilih_tgl={curr_date.isoformat()}" target="_self" class="cal-cell{extra_cls}">
+                <div class="c-num">{day}</div>
+                <span class="c-badge {badge_cls}">{badge_txt}</span>
+            </a>
+            """
+    html_code += "</div>"
 
-st.markdown("<br>", unsafe_allow_html=True)
+html_code += "</div></div>"
+
+# Render HTML langsung menggunakan Markdown (Tanpa Iframe)
+st.markdown(html_code, unsafe_allow_html=True)
+
 
 # -------------------------------------------------------------
 # BUBBLE POP-UP RINCIAN JADWAL TANGGAL TERPILIH
