@@ -75,62 +75,18 @@ st.markdown("""
     .banner h1 { color: white !important; font-size: 22px; font-weight: 700; margin: 0 0 5px 0; }
     .banner p { color: #e0f2fe; margin: 0; font-size: 13px; }
 
-    /* Styling Kotak Kalender Grid */
+    /* Styling Kotak Kalender Grid Header */
     .cal-grid {
         display: grid;
         grid-template-columns: repeat(7, 1fr);
         gap: 6px;
-        margin-bottom: 15px;
+        margin-bottom: 10px;
     }
     .cal-header-cell {
         text-align: center;
         font-weight: bold;
         padding: 8px 0;
         font-size: 13px;
-    }
-    .day-cell {
-        background-color: #f8fafc;
-        border: 1px solid #cbd5e1;
-        border-radius: 8px;
-        padding: 8px 4px;
-        text-align: center;
-        min-height: 65px;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        cursor: pointer;
-        transition: all 0.2s;
-    }
-    .day-cell:hover {
-        border-color: #0284c7;
-        box-shadow: 0 2px 6px rgba(2, 132, 199, 0.2);
-    }
-    .day-booked {
-        background-color: #fef2f2;
-        border-color: #f87171;
-    }
-    .day-selected {
-        border: 2px solid #0284c7 !important;
-        box-shadow: 0 0 8px rgba(2, 132, 199, 0.4);
-    }
-    .day-number {
-        font-size: 15px;
-        font-weight: bold;
-    }
-    .day-badge {
-        font-size: 9px;
-        padding: 2px 4px;
-        border-radius: 4px;
-        margin-top: 4px;
-        font-weight: bold;
-    }
-    .badge-booked {
-        background-color: #dc2626;
-        color: white;
-    }
-    .badge-empty {
-        background-color: #e2e8f0;
-        color: #64748b;
     }
 
     /* Styling Bubble Pop-up Rincian */
@@ -167,7 +123,7 @@ jadwal_data = load_data()
 st.markdown("""
 <div class="banner">
     <h1>📅 Kalender Jadwal Kunjungan Kolam</h1>
-    <p>Pilih tanggal pada tombol filter di bawah untuk melihat rincian status bookingan pada bubble informasi.</p>
+    <p>Pilih tanggal pada kotak kalender di bawah untuk melihat rincian status bookingan pada bubble informasi.</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -215,7 +171,7 @@ st.markdown(f"### 🗓️ Kalender Bulan {bln_pilihan} {thn_pilihan}")
 cal_weeks = calendar.monthcalendar(thn_pilihan, bln_idx)
 hari_names_singkat = ["Mgg", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"]
 
-# Header Hari (Minggu berwarna merah, Jumat hijau, lainnya abu gelap)
+# Header Hari (Minggu merah, Jumat hijau, lainnya abu gelap)
 header_html = "<div class='cal-grid'>"
 for i, h_name in enumerate(hari_names_singkat):
     color_txt = "#dc2626" if i == 0 else ("#16a34a" if i == 5 else "#334155")
@@ -223,8 +179,8 @@ for i, h_name in enumerate(hari_names_singkat):
 header_html += "</div>"
 st.markdown(header_html, unsafe_allow_html=True)
 
-# Render Grid Kotak Tanggal
-for week in cal_weeks:
+# Render Grid Kotak Tanggal dengan Kunci Unik Berbasis Minggu & Tanggal
+for w_idx, week in enumerate(cal_weeks):
     # Atur agar Minggu di awal (indeks 6 dipindah ke depan)
     adjusted_week = [week[6], week[0], week[1], week[2], week[3], week[4], week[5]]
     
@@ -236,20 +192,15 @@ for week in cal_weeks:
             else:
                 curr_date = date(thn_pilihan, bln_idx, day)
                 jumlah_event = len(events_map[curr_date])
-                is_sel = (curr_date == st.session_state.selected_date)
                 
-                # Menentukan kelas CSS visual kotak
-                cell_class = "day-cell"
-                if jumlah_event > 0:
-                    cell_class += " day-booked"
-                if is_sel:
-                    cell_class += " day-selected"
+                # Mengatur tipe tombol (primary jika ada booking, secondary jika kosong)
+                btn_type = "primary" if jumlah_event > 0 else "secondary"
+                btn_label = f"{day}\n({jumlah_event} Rombel)" if jumlah_event > 0 else f"{day}\n(Kosong)"
                 
-                badge_class = "badge-booked" if jumlah_event > 0 else "badge-empty"
-                badge_text = f"{jumlah_event} Rombel" if jumlah_event > 0 else "Kosong"
+                # Kunci unik mutlak menggabungkan minggu dan tanggal lengkap
+                unique_key = f"cal_w{w_idx}_d{curr_date.isoformat()}"
                 
-                # Tombol Streamlit transparan untuk memicu klik pada kotak tanggal
-                if st.button(f"{day}\n{jumlah_event} Rombel" if jumlah_event > 0 else f"{day}\nKosong", key=dict(zip(range(7), hari_names_singkat))[i] or f"btn_{curr_date}", use_container_width=True):
+                if st.button(btn_label, key=unique_key, type=btn_type, use_container_width=True):
                     st.session_state.selected_date = curr_date
                     st.rerun()
 
