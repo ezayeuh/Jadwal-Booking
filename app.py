@@ -2,8 +2,12 @@ import streamlit as st
 import pandas as pd
 import calendar
 from datetime import datetime, date
+import streamlit.components.v1 as components
 from streamlit_gsheets import GSheetsConnection
 
+# -------------------------------------------------------------
+# KONFIGURASI SPREADSHEET
+# -------------------------------------------------------------
 SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1XsYvF0pcBYjRm-h_oPf2jag3OwUFLK43bhRoyE-yh-M/edit"
 
 st.set_page_config(
@@ -12,14 +16,15 @@ st.set_page_config(
     layout="wide"
 )
 
+# Inisialisasi State Tanggal
 if 'selected_date' not in st.session_state:
     st.session_state.selected_date = date.today()
 
-# Tangkap klik tanggal dari tabel kalender HTML secara instan
+# Menangani klik tanggal via query parameter yang aman
 query_params = st.query_params
 if "pilih_tgl" in query_params:
     try:
-        parsed_tgl = date.fromisoformat(str(query_params["pilih_tgl"]))
+        parsed_tgl = date.fromisoformat(query_params["pilih_tgl"])
         if st.session_state.selected_date != parsed_tgl:
             st.session_state.selected_date = parsed_tgl
     except Exception:
@@ -38,12 +43,14 @@ def load_data():
         df = conn.read(spreadsheet=SPREADSHEET_URL, ttl=0)
         if df is None or df.empty:
             return []
+
         data = df.to_dict(orient="records")
         for item in data:
             tgl_raw = item.get("TANGGAL_DATE")
             if pd.notna(tgl_raw) and tgl_raw:
                 try:
-                    item["TANGGAL_DATE"] = date.fromisoformat(str(tgl_raw).split(" ")[0])
+                    parsed_date = date.fromisoformat(str(tgl_raw).split(" ")[0])
+                    item["TANGGAL_DATE"] = parsed_date
                 except Exception:
                     item["TANGGAL_DATE"] = None
             else:
@@ -57,117 +64,25 @@ def load_data():
                     item["HARI_RUTIN"] = [hr_raw] if hr_raw else []
             elif not isinstance(hr_raw, list):
                 item["HARI_RUTIN"] = []
+
         return data
     except Exception as e:
-        st.error(f"Gagal memuat data: {e}")
+        st.error(f"Gagal memuat data dari Google Sheets: {e}")
         return []
 
-# CSS Tabel Kalender Murni 100% Anti-Turun ke Bawah di HP
+# Banner Header Utama
 st.markdown("""
-<style>
-    .banner {
-        background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
-        color: white; padding: 15px 20px; border-radius: 12px; margin-bottom: 15px;
-    }
-    .banner h1 { color: white !important; font-size: 18px; font-weight: 700; margin: 0 0 3px 0; }
-    .banner p { color: #e0f2fe; margin: 0; font-size: 11px; }
-
-    /* Desain Tabel Kalender Kotak Murni */
-    .kalender-container {
-        width: 100%;
-        overflow-x: auto;
-        background: #ffffff;
-        border-radius: 10px;
-        padding: 5px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        border: 1px solid #cbd5e1;
-    }
-    .kalender-table {
-        width: 100%;
-        border-collapse: collapse;
-        table-layout: fixed;
-    }
-    .kalender-table th {
-        color: #334155;
-        font-size: 11px;
-        padding: 6px 0;
-        text-align: center;
-        font-weight: bold;
-        width: 14.28%;
-        background-color: #f1f5f9;
-        border-bottom: 1px solid #cbd5e1;
-    }
-    .kalender-table td {
-        width: 14.28%;
-        height: 62px;
-        border: 1px solid #e2e8f0;
-        padding: 1px;
-        vertical-align: top;
-        text-align: center;
-        background-color: #f8fafc;
-    }
-    .kalender-table td.empty-cell {
-        background-color: #ffffff;
-    }
-    .kalender-table a {
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        height: 100%;
-        text-decoration: none !important;
-        padding: 3px;
-        box-sizing: border-box;
-        border-radius: 4px;
-    }
-    .kalender-table a:hover {
-        background-color: #e0f2fe;
-    }
-    .cell-date {
-        font-size: 12px;
-        font-weight: bold;
-        color: #1e293b;
-    }
-    .cell-badge {
-        font-size: 7px;
-        padding: 2px 1px;
-        border-radius: 3px;
-        font-weight: bold;
-        text-align: center;
-    }
-    
-    .badge-booked { background-color: #fee2e2; color: #dc2626; border: 1px solid #f87171; }
-    .cell-booked-bg { background-color: #fff5f5 !important; }
-    .badge-empty { background-color: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; }
-    
-    .selected-box {
-        background-color: #bae6fd !important;
-        border: 2px solid #0284c7 !important;
-    }
-
-    .bubble-container {
-        background: #ffffff; border: 2px solid #0284c7; border-radius: 12px;
-        padding: 15px; box-shadow: 0 4px 15px rgba(2, 132, 199, 0.15); margin-top: 15px;
-    }
-    .event-item {
-        background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #0284c7;
-        padding: 10px 12px; margin-top: 8px; border-radius: 6px;
-    }
-    .empty-bubble {
-        background-color: #f1f5f9; border: 2px dashed #cbd5e1; padding: 12px;
-        text-align: center; border-radius: 8px; color: #64748b; font-size: 12px;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-st.markdown("""
-<div class="banner">
-    <h1>📅 Kalender Jadwal Kunjungan Kolam</h1>
-    <p>Sentuh kotak tanggal di kalender bawah untuk melihat rincian jadwal.</p>
+<div style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: white; padding: 15px 20px; border-radius: 12px; margin-bottom: 15px;">
+    <h1 style="color: white !important; font-size: 20px; font-weight: 700; margin: 0 0 3px 0;">📅 Kalender Jadwal Kunjungan Kolam</h1>
+    <p style="color: #e0f2fe; margin: 0; font-size: 12px;">Sentuh salah satu kotak tanggal pada kalender di bawah untuk melihat rincian jadwal.</p>
 </div>
 """, unsafe_allow_html=True)
 
 jadwal_data = load_data()
 
+# -------------------------------------------------------------
+# FILTER BULAN & TAHUN
+# -------------------------------------------------------------
 col_b1, col_b2 = st.columns(2)
 today_dt = date.today()
 
@@ -178,7 +93,9 @@ with col_b2:
 
 bln_idx = list(BULAN_INDO.values()).index(bln_pilihan) + 1
 
-# Pemetaan Event per Tanggal
+# -------------------------------------------------------------
+# PEMETAAN DATA EVENT PER TANGGAL
+# -------------------------------------------------------------
 jml_hari_bulan = calendar.monthrange(thn_pilihan, bln_idx)[1]
 events_map = {date(thn_pilihan, bln_idx, d): [] for d in range(1, jml_hari_bulan + 1)}
 
@@ -190,64 +107,84 @@ for item in jadwal_data:
         rutin_list = item.get("HARI_RUTIN", [])
         if isinstance(rutin_list, list):
             for d in events_map.keys():
-                if HARI_INDO[d.weekday()] in rutin_list:
+                hari_nama = HARI_INDO[d.weekday()]
+                if hari_nama in rutin_list:
                     events_map[d].append(item)
+                    
     elif tgl_item and isinstance(tgl_item, date):
         if tgl_item.month == bln_idx and tgl_item.year == thn_pilihan:
             if tgl_item in events_map:
                 events_map[tgl_item].append(item)
 
+# -------------------------------------------------------------
+# RENDER KALENDER MENGGUNAKAN HTML KOMPONEN (DIJAMIN TIDAK HANCUR DI HP)
+# -------------------------------------------------------------
 st.markdown(f"### 🗓️ Bulan {bln_pilihan} {thn_pilihan}")
 
 calendar.setfirstweekday(calendar.SUNDAY)
 raw_weeks = calendar.monthcalendar(thn_pilihan, bln_idx)
 hari_names_singkat = ["Mgg", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"]
 
-# RENDER KELOMPOK TABEL HTML KALENDER MURNI (DIJAMIN 7 KOLOM SEJAJAR DI HP)
-html_table = "<div class='kalender-container'><table class='kalender-table'><thead><tr>"
+html_code = """
+<style>
+    body { font-family: sans-serif; background-color: transparent; margin: 0; padding: 0; }
+    .cal-box { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 10px; padding: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); }
+    .cal-grid-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; margin-bottom: 3px; }
+    .cal-th { text-align: center; font-weight: bold; font-size: 11px; padding: 4px 0; }
+    .cal-cell { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 5px; min-height: 52px; padding: 3px 1px; text-align: center; text-decoration: none !important; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box; }
+    .cal-cell:hover { background-color: #f1f5f9; border-color: #0284c7; }
+    .cell-empty { background-color: #ffffff; border: 1px solid transparent; min-height: 52px; }
+    .cell-booked { background-color: #fef2f2 !important; border-color: #f87171 !important; }
+    .cell-selected { border: 2px solid #0284c7 !important; background-color: #e0f2fe !important; }
+    .c-num { font-size: 12px; font-weight: bold; color: #1e293b; }
+    .c-badge { font-size: 8px; padding: 1px; border-radius: 3px; font-weight: bold; display: block; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .badge-booked { background-color: #dc2626; color: white; }
+    .badge-empty { background-color: #e2e8f0; color: #64748b; }
+</style>
+<div class='cal-box'>
+<div class='cal-grid-row'>
+"""
+
 for i, h_name in enumerate(hari_names_singkat):
-    c_color = "color: #dc2626;" if i == 0 else ("color: #16a34a;" if i == 5 else "")
-    html_table += f"<th style='{c_color}'>{h_name}</th>"
-html_table += "</tr></thead><tbody>"
+    c_color = "#dc2626" if i == 0 else ("#16a34a" if i == 5 else "#334155")
+    html_code += f"<div class='cal-th' style='color: {c_color};'>{h_name}</div>"
+html_code += "</div>"
 
 for week in raw_weeks:
-    html_table += "<tr>"
+    html_code += "<div class='cal-grid-row'>"
     for day in week:
         if day == 0:
-            html_table += "<td class='empty-cell'></td>"
+            html_code += "<div class='cell-empty'></div>"
         else:
             curr_date = date(thn_pilihan, bln_idx, day)
             jml_ev = len(events_map[curr_date])
-            is_sel = (curr_date == st.session_state.selected_date)
             
-            td_classes = []
+            extra_cls = ""
             if jml_ev > 0:
-                td_classes.append("cell-booked-bg")
-            if is_sel:
-                td_classes.append("selected-box")
-            
-            td_class_str = f" class='{' '.join(td_classes)}'" if td_classes else ""
-            
+                extra_cls += " cell-booked"
+            if curr_date == st.session_state.selected_date:
+                extra_cls += " cell-selected"
+                
             badge_cls = "badge-booked" if jml_ev > 0 else "badge-empty"
             badge_txt = f"{jml_ev} Rombel" if jml_ev > 0 else "Kosong"
             
-            html_table += f"""
-            <td{td_class_str}>
-                <a href="?pilih_tgl={curr_date.isoformat()}" target="_self">
-                    <span class="cell-date">{day}</span>
-                    <span class="cell-badge {badge_cls}">{badge_txt}</span>
-                </a>
-            </td>
+            html_code += f"""
+            <a href="?pilih_tgl={curr_date.isoformat()}" target="_self" class="cal-cell{extra_cls}">
+                <div class="c-num">{day}</div>
+                <span class="c-badge {badge_cls}">{badge_txt}</span>
+            </a>
             """
-    html_table += "</tr>"
+    html_code += "</div>"
 
-html_table += "</tbody></table></div>"
+html_code += "</div>"
 
-st.markdown(html_table, unsafe_allow_html=True)
+# Tinggi iframe disesuaikan agar pas memuat seluruh minggu dalam sebulan tanpa scrollbar berlebih
+components.html(html_code, height=310)
+
 st.markdown("<br>", unsafe_allow_html=True)
 
 # -------------------------------------------------------------
-# BUBBLE RINCIAN JADWAL TANGGAL TERPILIH
+# BUBBLE POP-UP RINCIAN JADWAL TANGGAL TERPILIH
 # -------------------------------------------------------------
 sel_date = st.session_state.selected_date
 sel_hari_nama = HARI_INDO[sel_date.weekday()]
@@ -259,6 +196,7 @@ st.markdown(f"#### 💬 Detail Kunjungan: <span style='color: #0284c7;'>{tgl_for
 events_selected = []
 for item in jadwal_data:
     tipe_str = str(item.get("TIPE", "")).lower()
+    
     if item.get("TANGGAL_DATE") == sel_date:
         events_selected.append(item)
     elif tipe_str == "hari rutin / berulang" or item.get("HARI_RUTIN"):
@@ -266,7 +204,15 @@ for item in jadwal_data:
         if isinstance(rutin_list, list) and sel_hari_nama in rutin_list:
             events_selected.append(item)
 
-st.markdown("<div class='bubble-container'>", unsafe_allow_html=True)
+# Wadah Bubble Rincian
+st.markdown("""
+<style>
+    .bubble-container { background: #ffffff; border: 2px solid #0284c7; border-radius: 12px; padding: 18px; box-shadow: 0 4px 15px rgba(2, 132, 199, 0.15); margin-top: 5px; }
+    .event-item { background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #0284c7; padding: 10px 14px; margin-top: 10px; border-radius: 6px; }
+    .empty-bubble { background-color: #f1f5f9; border: 2px dashed #cbd5e1; padding: 15px; text-align: center; border-radius: 8px; color: #64748b; font-size: 13px; }
+</style>
+<div class="bubble-container">
+""", unsafe_allow_html=True)
 
 if events_selected:
     st.markdown(f"<p style='color: #0369a1; font-weight: bold; margin-bottom: 8px;'>Ditemukan {len(events_selected)} jadwal / kegiatan pada tanggal ini:</p>", unsafe_allow_html=True)
@@ -288,16 +234,16 @@ if events_selected:
             <div style="float: right; background-color: {warna_badge}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: bold;">
                 {kategori}
             </div>
-            <div style="font-size: 14px; font-weight: bold; color: #0284c7; margin-bottom: 2px;">{sekolah}</div>
+            <div style="font-size: 15px; font-weight: bold; color: #0284c7; margin-bottom: 3px;">{sekolah}</div>
             <div style="font-size: 12px; color: #475569;">👤 <b>PIC/Kontak:</b> {pic}</div>
             <div style="font-size: 12px; color: #475569;">👥 <b>Jumlah:</b> {jumlah} Orang</div>
-            <div style="font-size: 11px; color: #64748b; font-style: italic; margin-top: 2px;">📝 Catatan: {ket}</div>
+            <div style="font-size: 11px; color: #64748b; font-style: italic; margin-top: 3px;">📝 Catatan: {ket}</div>
         </div>
         """, unsafe_allow_html=True)
 else:
     st.markdown("""
     <div class="empty-bubble">
-        <div style="font-size: 18px; margin-bottom: 2px;">🏖️</div>
+        <div style="font-size: 20px; margin-bottom: 3px;">🏖️</div>
         <b>Status: KOSONG</b><br>
         Belum ada jadwal rombongan atau bookingan pada tanggal ini.
     </div>
