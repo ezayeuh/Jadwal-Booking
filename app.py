@@ -19,11 +19,11 @@ st.set_page_config(
 if 'selected_date' not in st.session_state:
     st.session_state.selected_date = date.today()
 
-# Tangkap klik tanggal dari tabel kalender HTML
+# Tangkap klik tanggal dari query parameter browser secara aman
 query_params = st.query_params
 if "pilih_tgl" in query_params:
     try:
-        parsed_tgl = date.fromisoformat(query_params["pilih_tgl"])
+        parsed_tgl = date.fromisoformat(str(query_params["pilih_tgl"]))
         if st.session_state.selected_date != parsed_tgl:
             st.session_state.selected_date = parsed_tgl
     except Exception:
@@ -69,7 +69,7 @@ def load_data():
         st.error(f"Gagal memuat data dari Google Sheets: {e}")
         return []
 
-# CSS Kustom agar Tampilan Tabel Kalender 100% Persis Seperti Desain Profesional di Screenshot
+# CSS Kustom Kalender Tabel Murni (Di-lock fix supaya 7 kolom rata di HP)
 st.markdown("""
 <style>
     .banner {
@@ -82,7 +82,6 @@ st.markdown("""
     .banner h1 { color: white !important; font-size: 20px; font-weight: 700; margin: 0 0 3px 0; }
     .banner p { color: #e0f2fe; margin: 0; font-size: 12px; }
 
-    /* Desain Tabel Kalender Kotak-Kotak Rapi 7 Kolom */
     .kalender-wrapper {
         width: 100%;
         overflow-x: auto;
@@ -90,22 +89,24 @@ st.markdown("""
     .kalender-table {
         width: 100%;
         border-collapse: separate;
-        border-spacing: 4px;
+        border-spacing: 3px;
         background: #ffffff;
+        table-layout: fixed;
     }
     .kalender-table th {
         color: #334155;
-        font-size: 12px;
-        padding: 6px 0;
+        font-size: 11px;
+        padding: 4px 0;
         text-align: center;
         font-weight: bold;
+        width: 14.28%;
     }
     .kalender-table td {
         width: 14.28%;
-        height: 65px;
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        padding: 2px;
+        height: 60px;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        padding: 1px;
         vertical-align: top;
         text-align: center;
         background-color: #f8fafc;
@@ -120,29 +121,27 @@ st.markdown("""
         justify-content: space-between;
         height: 100%;
         text-decoration: none !important;
-        padding: 4px;
+        padding: 3px;
         box-sizing: border-box;
     }
     .cell-date {
-        font-size: 12px;
+        font-size: 11px;
         font-weight: bold;
         color: #1e293b;
     }
     .cell-badge {
-        font-size: 8px;
-        padding: 2px 1px;
-        border-radius: 4px;
+        font-size: 7px;
+        padding: 1px;
+        border-radius: 3px;
         font-weight: bold;
         text-align: center;
+        white-space: nowrap;
     }
     
-    /* Warna Status Sesuai Keinginan */
     .badge-booked { background-color: #fee2e2; color: #dc2626; border: 1px solid #f87171; }
     .cell-booked-bg { background-color: #fff5f5 !important; border-color: #fca5a5 !important; }
+    .badge-empty { background-color: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; }
     
-    .badge-empty { background-color: #f1f5f9; color: #64748b; border: 1px solid #cbd5e1; }
-    
-    /* Kotak Saat Tanggal Dipilih */
     .selected-box {
         border: 2px solid #0284c7 !important;
         background-color: #e0f2fe !important;
@@ -152,7 +151,7 @@ st.markdown("""
         background: #ffffff;
         border: 2px solid #0284c7;
         border-radius: 12px;
-        padding: 18px;
+        padding: 15px;
         box-shadow: 0 4px 15px rgba(2, 132, 199, 0.15);
         margin-top: 15px;
     }
@@ -160,18 +159,18 @@ st.markdown("""
         background-color: #f8fafc;
         border: 1px solid #e2e8f0;
         border-left: 4px solid #0284c7;
-        padding: 10px 14px;
-        margin-top: 10px;
+        padding: 10px 12px;
+        margin-top: 8px;
         border-radius: 6px;
     }
     .empty-bubble {
         background-color: #f1f5f9;
         border: 2px dashed #cbd5e1;
-        padding: 15px;
+        padding: 12px;
         text-align: center;
         border-radius: 8px;
         color: #64748b;
-        font-size: 13px;
+        font-size: 12px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -223,7 +222,7 @@ for item in jadwal_data:
                 events_map[tgl_item].append(item)
 
 # -------------------------------------------------------------
-# RENDER TABEL KALENDER HTML (PERSIS SEPERTI SCREENSHOT)
+# RENDER TABEL KALENDER HTML
 # -------------------------------------------------------------
 st.markdown(f"### 🗓️ Bulan {bln_pilihan} {thn_pilihan}")
 
@@ -248,7 +247,6 @@ for week in raw_weeks:
             
             is_sel = (curr_date == st.session_state.selected_date)
             
-            # Kelas CSS untuk kotak tanggal
             td_classes = []
             if jml_ev > 0:
                 td_classes.append("cell-booked-bg")
@@ -296,7 +294,6 @@ for item in jadwal_data:
         if isinstance(rutin_list, list) and sel_hari_nama in rutin_list:
             events_selected.append(item)
 
-# Wadah Bubble Rincian
 st.markdown("<div class='bubble-container'>", unsafe_allow_html=True)
 
 if events_selected:
@@ -319,16 +316,16 @@ if events_selected:
             <div style="float: right; background-color: {warna_badge}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: bold;">
                 {kategori}
             </div>
-            <div style="font-size: 15px; font-weight: bold; color: #0284c7; margin-bottom: 3px;">{sekolah}</div>
+            <div style="font-size: 14px; font-weight: bold; color: #0284c7; margin-bottom: 2px;">{sekolah}</div>
             <div style="font-size: 12px; color: #475569;">👤 <b>PIC/Kontak:</b> {pic}</div>
             <div style="font-size: 12px; color: #475569;">👥 <b>Jumlah:</b> {jumlah} Orang</div>
-            <div style="font-size: 11px; color: #64748b; font-style: italic; margin-top: 3px;">📝 Catatan: {ket}</div>
+            <div style="font-size: 11px; color: #64748b; font-style: italic; margin-top: 2px;">📝 Catatan: {ket}</div>
         </div>
         """, unsafe_allow_html=True)
 else:
     st.markdown("""
     <div class="empty-bubble">
-        <div style="font-size: 20px; margin-bottom: 3px;">🏖️</div>
+        <div style="font-size: 18px; margin-bottom: 2px;">🏖️</div>
         <b>Status: KOSONG</b><br>
         Belum ada jadwal rombongan atau bookingan pada tanggal ini.
     </div>
