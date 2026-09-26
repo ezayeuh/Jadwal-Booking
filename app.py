@@ -19,6 +19,14 @@ st.set_page_config(
 if 'selected_date' not in st.session_state:
     st.session_state.selected_date = date.today()
 
+# Menangani klik tanggal via query string parameter dari tabel HTML
+query_params = st.query_params
+if "pilih_tgl" in query_params:
+    try:
+        st.session_state.selected_date = date.fromisoformat(query_params["pilih_tgl"])
+    except Exception:
+        pass
+
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 HARI_INDO = {0: "Senin", 1: "Selasa", 2: "Rabu", 3: "Kamis", 4: "Jumat", 5: "Sabtu", 6: "Minggu"}
@@ -59,7 +67,9 @@ def load_data():
         st.error(f"Gagal memuat data dari Google Sheets: {e}")
         return []
 
-# CSS KUSTOM UNTUK TOMBOL KOTAK KALENDER RAPI 7 KOLOM
+# -------------------------------------------------------------
+# CSS KUSTOM UNTUK STRUKTUR GRID KALENDER DINDING HTML
+# -------------------------------------------------------------
 st.markdown("""
 <style>
     .banner {
@@ -72,7 +82,77 @@ st.markdown("""
     .banner h1 { color: white !important; font-size: 20px; font-weight: 700; margin: 0 0 3px 0; }
     .banner p { color: #e0f2fe; margin: 0; font-size: 12px; }
 
-    /* Styling Bubble Rincian */
+    /* Kotak Pembungkus Kalender */
+    .cal-box {
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        padding: 10px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+    }
+    .cal-grid-row {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 4px;
+        margin-bottom: 4px;
+    }
+    .cal-th {
+        text-align: center;
+        font-weight: bold;
+        font-size: 12px;
+        padding: 6px 0;
+    }
+    .cal-cell {
+        background-color: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        min-height: 62px;
+        padding: 4px 2px;
+        text-align: center;
+        text-decoration: none !important;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        transition: all 0.1s ease;
+    }
+    .cal-cell:hover {
+        background-color: #f1f5f9;
+        border-color: #0284c7;
+    }
+    .cell-empty {
+        background-color: #ffffff;
+        border: 1px solid transparent;
+        min-height: 62px;
+    }
+    .cell-booked {
+        background-color: #fef2f2 !important;
+        border-color: #f87171 !important;
+    }
+    .cell-selected {
+        border: 2px solid #0284c7 !important;
+        box-shadow: 0 0 5px rgba(2, 132, 199, 0.4);
+        background-color: #e0f2fe !important;
+    }
+    .c-num {
+        font-size: 13px;
+        font-weight: bold;
+        color: #1e293b;
+    }
+    .c-badge {
+        font-size: 9px;
+        padding: 2px 2px;
+        border-radius: 4px;
+        font-weight: bold;
+        display: block;
+        text-align: center;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .badge-booked { background-color: #dc2626; color: white; }
+    .badge-empty { background-color: #e2e8f0; color: #64748b; }
+
+    /* Bubble Rincian */
     .bubble-container {
         background: #ffffff;
         border: 2px solid #0284c7;
@@ -106,7 +186,7 @@ jadwal_data = load_data()
 st.markdown("""
 <div class="banner">
     <h1>📅 Kalender Jadwal Kunjungan Kolam</h1>
-    <p>Ketuk kotak tanggal pada kalender di bawah untuk melihat rincian jadwal.</p>
+    <p>Sentuh salah satu kotak tanggal pada kalender di bawah untuk melihat rincian jadwal.</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -147,43 +227,59 @@ for item in jadwal_data:
                 events_map[tgl_item].append(item)
 
 # -------------------------------------------------------------
-# RENDER KALENDER MENGGUNAKAN GRID 7 KOLOM STREAMLIT
+# RENDER VISUAL KALENDER MATRIKS 7 KOLOM (HTML MURNI)
 # -------------------------------------------------------------
 st.markdown(f"### 🗓️ Bulan {bln_pilihan} {thn_pilihan}")
 
 cal_weeks = calendar.monthcalendar(thn_pilihan, bln_idx)
 hari_names_singkat = ["Mgg", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"]
 
-# Header Nama Hari
-cols_header = st.columns(7)
+html_code = "<div class='cal-box'>"
+
+# Header Hari (Minggu Merah, Jumat Hijau)
+html_code += "<div class='cal-grid-row'>"
 for i, h_name in enumerate(hari_names_singkat):
-    clr = "#dc2626" if i == 0 else ("#16a34a" if i == 5 else "#334155")
-    cols_header[i].markdown(f"<div style='text-align: center; font-weight: bold; color: {clr}; font-size: 13px; margin-bottom: 5px;'>{h_name}</div>", unsafe_allow_html=True)
+    c_color = "#dc2626" if i == 0 else ("#16a34a" if i == 5 else "#334155")
+    html_code += f"<div class='cal-th' style='color: {c_color};'>{h_name}</div>"
+html_code += "</div>"
 
-# Render Kotak Tanggal Per Minggu
-for w_idx, week in enumerate(cal_weeks):
+# Baris Kotak Tanggal
+for week in cal_weeks:
+    # Geser Minggu (indeks 6) ke posisi awal
     adjusted_week = [week[6], week[0], week[1], week[2], week[3], week[4], week[5]]
-    cols_days = st.columns(7)
     
-    for i, day in enumerate(adjusted_week):
-        with cols_days[i]:
-            if day == 0:
-                st.markdown("<div style='min-height: 50px;'></div>", unsafe_allow_html=True)
-            else:
-                curr_date = date(thn_pilihan, bln_idx, day)
-                jml_ev = len(events_map[curr_date])
+    html_code += "<div class='cal-grid-row'>"
+    for day in adjusted_week:
+        if day == 0:
+            html_code += "<div class='cell-empty'></div>"
+        else:
+            curr_date = date(thn_pilihan, bln_idx, day)
+            jml_ev = len(events_map[curr_date])
+            
+            # Tentukan kelas status kotak
+            extra_cls = ""
+            if jml_ev > 0:
+                extra_cls += " cell-booked"
+            if curr_date == st.session_state.selected_date:
+                extra_cls += " cell-selected"
                 
-                # Format Tampilan Kotak Tanggal
-                btn_type = "primary" if jml_ev > 0 else "secondary"
-                btn_label = f"{day}\n({jml_ev})" if jml_ev > 0 else f"{day}\n(-)"
-                
-                unique_key = f"cal_w{w_idx}_d{curr_date.isoformat()}"
-                
-                if st.button(btn_label, key=unique_key, type=btn_type, use_container_width=True):
-                    st.session_state.selected_date = curr_date
-                    st.rerun()
+            badge_cls = "badge-booked" if jml_ev > 0 else "badge-empty"
+            badge_txt = f"{jml_ev} Rombel" if jml_ev > 0 else "Kosong"
+            
+            html_code += f"""
+            <a href="?pilih_tgl={curr_date.isoformat()}" target="_self" class="cal-cell{extra_cls}">
+                <div class="c-num">{day}</div>
+                <span class="c-badge {badge_cls}">{badge_txt}</span>
+            </a>
+            """
+    html_code += "</div>"
 
-st.markdown("<hr style='margin: 20px 0; border: 1px solid #e2e8f0;'>", unsafe_allow_html=True)
+html_code += "</div>"
+
+# Render HTML secara aman ke Streamlit
+st.markdown(html_code, unsafe_allow_html=True)
+
+st.markdown("<br>", unsafe_allow_html=True)
 
 # -------------------------------------------------------------
 # BUBBLE POP-UP RINCIAN JADWAL TANGGAL TERPILIH
