@@ -18,6 +18,13 @@ st.set_page_config(
 # KONEKSI GOOGLE SHEETS
 conn = st.connection("gsheets", type=GSheetsConnection)
 
+# KAMUS HARI DAN BULAN BAHASA INDONESIA
+HARI_INDO = {0: "Senin", 1: "Selasa", 2: "Rabu", 3: "Kamis", 4: "Jumat", 5: "Sabtu", 6: "Minggu"}
+BULAN_INDO = {
+    1: "Januari", 2: "Februari", 3: "Maret", 4: "April", 5: "Mei", 6: "Juni",
+    7: "Juli", 8: "Agustus", 9: "September", 10: "Oktober", 11: "November", 12: "Desember"
+}
+
 def load_data():
     try:
         df = conn.read(spreadsheet=SPREADSHEET_URL, ttl=0)
@@ -30,7 +37,12 @@ def load_data():
             tgl_raw = item.get("TANGGAL_DATE")
             if pd.notna(tgl_raw) and tgl_raw:
                 try:
-                    item["TANGGAL_DATE"] = date.fromisoformat(str(tgl_raw).split(" ")[0])
+                    parsed_date = date.fromisoformat(str(tgl_raw).split(" ")[0])
+                    item["TANGGAL_DATE"] = parsed_date
+                    # Format ulang TANGGAL_TEXT ke Bahasa Indonesia
+                    hari_str = HARI_INDO[parsed_date.weekday()]
+                    bln_str = BULAN_INDO[parsed_date.month]
+                    item["TANGGAL_TEXT"] = f"{hari_str}, {parsed_date.day:02d} {bln_str} {parsed_date.year}"
                 except Exception:
                     item["TANGGAL_DATE"] = None
             else:
@@ -191,8 +203,7 @@ with col_filter:
 start_of_week = filter_date - timedelta(days=filter_date.weekday())
 end_of_week = start_of_week + timedelta(days=6)
 
-bln_indo = {1: "Jan", 2: "Feb", 3: "Mar", 4: "Apr", 5: "Mei", 6: "Jun", 7: "Jul", 8: "Agu", 9: "Sep", 10: "Okt", 11: "Nov", 12: "Des"}
-periode_str = f"{start_of_week.day} {bln_indo[start_of_week.month]} {start_of_week.year} s/d {end_of_week.day} {bln_indo[end_of_week.month]} {end_of_week.year}"
+periode_str = f"{start_of_week.day} {BULAN_INDO[start_of_week.month]} {start_of_week.year} s/d {end_of_week.day} {BULAN_INDO[end_of_week.month]} {end_of_week.year}"
 
 st.markdown(f"**Periode Tampilan:** <span style='color: #0284c7; font-weight: bold;'>{periode_str}</span>", unsafe_allow_html=True)
 st.markdown("<br>", unsafe_allow_html=True)
