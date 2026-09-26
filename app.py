@@ -117,7 +117,7 @@ for item in jadwal_data:
                 events_map[tgl_item].append(item)
 
 # -------------------------------------------------------------
-# RENDER KALENDER MENGGUNAKAN HTML KOMPONEN (DIJAMIN TIDAK HANCUR DI HP)
+# RENDER KALENDER MENGGUNAKAN HTML KOMPONEN
 # -------------------------------------------------------------
 st.markdown(f"### 🗓️ Bulan {bln_pilihan} {thn_pilihan}")
 
@@ -168,8 +168,9 @@ for week in raw_weeks:
             badge_cls = "badge-booked" if jml_ev > 0 else "badge-empty"
             badge_txt = f"{jml_ev} Rombel" if jml_ev > 0 else "Kosong"
             
+            # BAGIAN YANG DIPERBAIKI: target="_parent"
             html_code += f"""
-            <a href="?pilih_tgl={curr_date.isoformat()}" target="_self" class="cal-cell{extra_cls}">
+            <a href="?pilih_tgl={curr_date.isoformat()}" target="_parent" class="cal-cell{extra_cls}">
                 <div class="c-num">{day}</div>
                 <span class="c-badge {badge_cls}">{badge_txt}</span>
             </a>
