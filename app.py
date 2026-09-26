@@ -39,7 +39,6 @@ def load_data():
                 try:
                     parsed_date = date.fromisoformat(str(tgl_raw).split(" ")[0])
                     item["TANGGAL_DATE"] = parsed_date
-                    # Format ulang TANGGAL_TEXT ke Bahasa Indonesia
                     hari_str = HARI_INDO[parsed_date.weekday()]
                     bln_str = BULAN_INDO[parsed_date.month]
                     item["TANGGAL_TEXT"] = f"{hari_str}, {parsed_date.day:02d} {bln_str} {parsed_date.year}"
@@ -109,14 +108,14 @@ st.markdown("""
         border: 1px solid #e2e8f0;
         border-radius: 10px;
         padding: 12px;
-        min-height: 280px;
+        margin-bottom: 10px;
     }
     .day-card-today {
         background-color: #f0f9ff;
         border: 2px solid #0284c7;
         border-radius: 10px;
         padding: 12px;
-        min-height: 280px;
+        margin-bottom: 10px;
     }
     .today-badge {
         background-color: #0284c7;
@@ -143,7 +142,8 @@ st.markdown("""
         color: #94a3b8;
         font-size: 12px;
         text-align: center;
-        margin-top: 50px;
+        margin-top: 20px;
+        margin-bottom: 20px;
         font-style: italic;
     }
 </style>
@@ -232,36 +232,33 @@ for idx, col in enumerate(cols_days):
     card_class = "day-card-today" if is_today else "day-card"
 
     with col:
-        header_html = f"<div><b>{hari_nama}</b> <span style='float: right; color: #64748b; font-size: 12px;'>{curr_date.strftime('%d/%m')}</span></div>"
-        if is_today:
-            header_html += "<span class='today-badge'>HARI INI</span>"
+        # Render Header Hari
+        badge_html = "<span class='today-badge'>HARI INI</span>" if is_today else ""
+        st.markdown(f"""
+        <div class="{card_class}">
+            <div><b>{hari_nama}</b> <span style='float: right; color: #64748b; font-size: 12px;'>{curr_date.strftime('%d/%m')}</span></div>
+            {badge_html}
+            <hr style='margin: 8px 0; border: none; border-top: 1px solid #e2e8f0;'>
+        </div>
+        """, unsafe_allow_html=True)
 
-        header_html += "<hr style='margin: 8px 0; border: none; border-top: 1px solid #e2e8f0;'>"
-
+        # Render Item Acara / Event
         if events_today:
-            content_html = ""
             for ev in events_today:
-                sekolah = ev.get("SEKOLAH") if pd.notna(ev.get("SEKOLAH")) else "-"
-                pic = ev.get("PIC") if pd.notna(ev.get("PIC")) else "-"
+                sekolah = ev.get("SEKOLAH") if pd.notna(ev.get("SEKOLAH")) and ev.get("SEKOLAH") else "-"
+                pic = ev.get("PIC") if pd.notna(ev.get("PIC")) and ev.get("PIC") else "-"
                 
                 jumlah_raw = ev.get("JUMLAH")
-                jumlah = str(jumlah_raw) if pd.notna(jumlah_raw) else "-"
+                jumlah = str(jumlah_raw) if pd.notna(jumlah_raw) and jumlah_raw else "-"
                 if jumlah.endswith(".0"):
                     jumlah = jumlah.replace(".0", "")
 
-                content_html += f"""
+                st.markdown(f"""
                 <div class="event-card">
                     <strong style="color: #0284c7; font-size: 13px;">{sekolah}</strong><br>
                     <span style="color: #475569;">👤 {pic}</span><br>
                     <span style="color: #475569;">👥 {jumlah}</span>
                 </div>
-                """
+                """, unsafe_allow_html=True)
         else:
-            content_html = "<div class='empty-text'>Tidak Ada Kunjungan</div>"
-
-        st.markdown(f"""
-        <div class="{card_class}">
-            {header_html}
-            {content_html}
-        </div>
-        """, unsafe_allow_html=True)
+            st.markdown("<div class='empty-text'>Tidak Ada Kunjungan</div>", unsafe_allow_html=True)
