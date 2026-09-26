@@ -4,9 +4,6 @@ import calendar
 from datetime import datetime, date
 from streamlit_gsheets import GSheetsConnection
 
-# -------------------------------------------------------------
-# KONFIGURASI SPREADSHEET
-# -------------------------------------------------------------
 SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1XsYvF0pcBYjRm-h_oPf2jag3OwUFLK43bhRoyE-yh-M/edit"
 
 st.set_page_config(
@@ -15,19 +12,8 @@ st.set_page_config(
     layout="wide"
 )
 
-# Inisialisasi State Tanggal
 if 'selected_date' not in st.session_state:
     st.session_state.selected_date = date.today()
-
-# Tangkap klik tanggal dari query parameter browser secara aman
-query_params = st.query_params
-if "pilih_tgl" in query_params:
-    try:
-        parsed_tgl = date.fromisoformat(str(query_params["pilih_tgl"]))
-        if st.session_state.selected_date != parsed_tgl:
-            st.session_state.selected_date = parsed_tgl
-    except Exception:
-        pass
 
 conn = st.connection("gsheets", type=GSheetsConnection)
 
@@ -42,14 +28,12 @@ def load_data():
         df = conn.read(spreadsheet=SPREADSHEET_URL, ttl=0)
         if df is None or df.empty:
             return []
-
         data = df.to_dict(orient="records")
         for item in data:
             tgl_raw = item.get("TANGGAL_DATE")
             if pd.notna(tgl_raw) and tgl_raw:
                 try:
-                    parsed_date = date.fromisoformat(str(tgl_raw).split(" ")[0])
-                    item["TANGGAL_DATE"] = parsed_date
+                    item["TANGGAL_DATE"] = date.fromisoformat(str(tgl_raw).split(" ")[0])
                 except Exception:
                     item["TANGGAL_DATE"] = None
             else:
@@ -63,131 +47,77 @@ def load_data():
                     item["HARI_RUTIN"] = [hr_raw] if hr_raw else []
             elif not isinstance(hr_raw, list):
                 item["HARI_RUTIN"] = []
-
         return data
     except Exception as e:
-        st.error(f"Gagal memuat data dari Google Sheets: {e}")
+        st.error(f"Gagal memuat data: {e}")
         return []
 
-# CSS Kustom Kalender Tabel Murni (Di-lock fix supaya 7 kolom rata di HP)
+# CSS Grid Murni Tanpa Pecah di HP
 st.markdown("""
 <style>
     .banner {
         background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
-        color: white;
-        padding: 15px 20px;
-        border-radius: 12px;
-        margin-bottom: 15px;
+        color: white; padding: 15px 20px; border-radius: 12px; margin-bottom: 15px;
     }
-    .banner h1 { color: white !important; font-size: 20px; font-weight: 700; margin: 0 0 3px 0; }
-    .banner p { color: #e0f2fe; margin: 0; font-size: 12px; }
+    .banner h1 { color: white !important; font-size: 18px; font-weight: 700; margin: 0 0 3px 0; }
+    .banner p { color: #e0f2fe; margin: 0; font-size: 11px; }
 
-    .kalender-wrapper {
-        width: 100%;
-        overflow-x: auto;
+    /* Memaksa kontainer kolom Streamlit jadi Grid 7 Kolom Sejati di Mobile */
+    [data-testid="stHorizontalBlock"] {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 2px !important;
     }
-    .kalender-table {
-        width: 100%;
-        border-collapse: separate;
-        border-spacing: 3px;
-        background: #ffffff;
-        table-layout: fixed;
-    }
-    .kalender-table th {
-        color: #334155;
-        font-size: 11px;
-        padding: 4px 0;
-        text-align: center;
-        font-weight: bold;
-        width: 14.28%;
-    }
-    .kalender-table td {
-        width: 14.28%;
-        height: 60px;
-        border: 1px solid #cbd5e1;
-        border-radius: 6px;
-        padding: 1px;
-        vertical-align: top;
-        text-align: center;
-        background-color: #f8fafc;
-    }
-    .kalender-table td.empty-cell {
-        background-color: transparent;
-        border: none;
-    }
-    .kalender-table a {
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        height: 100%;
-        text-decoration: none !important;
-        padding: 3px;
-        box-sizing: border-box;
-    }
-    .cell-date {
-        font-size: 11px;
-        font-weight: bold;
-        color: #1e293b;
-    }
-    .cell-badge {
-        font-size: 7px;
-        padding: 1px;
-        border-radius: 3px;
-        font-weight: bold;
-        text-align: center;
-        white-space: nowrap;
+    [data-testid="column"] {
+        flex: 1 1 14.28% !important;
+        min-width: 0 !important;
+        width: 14.28% !important;
+        padding: 0px !important;
     }
     
-    .badge-booked { background-color: #fee2e2; color: #dc2626; border: 1px solid #f87171; }
-    .cell-booked-bg { background-color: #fff5f5 !important; border-color: #fca5a5 !important; }
-    .badge-empty { background-color: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; }
-    
-    .selected-box {
-        border: 2px solid #0284c7 !important;
+    /* Tombol Kalender Compact */
+    .stButton button {
+        width: 100% !important;
+        height: 52px !important;
+        border-radius: 4px !important;
+        font-size: 9px !important;
+        padding: 0px !important;
+        text-align: center !important;
+        line-height: 1.1 !important;
+        background-color: #f8fafc !important;
+        border: 1px solid #cbd5e1 !important;
+        color: #1e293b !important;
+    }
+    .stButton button:hover {
         background-color: #e0f2fe !important;
+        border-color: #0284c7 !important;
     }
 
     .bubble-container {
-        background: #ffffff;
-        border: 2px solid #0284c7;
-        border-radius: 12px;
-        padding: 15px;
-        box-shadow: 0 4px 15px rgba(2, 132, 199, 0.15);
-        margin-top: 15px;
+        background: #ffffff; border: 2px solid #0284c7; border-radius: 12px;
+        padding: 15px; box-shadow: 0 4px 15px rgba(2, 132, 199, 0.15); margin-top: 15px;
     }
     .event-item {
-        background-color: #f8fafc;
-        border: 1px solid #e2e8f0;
-        border-left: 4px solid #0284c7;
-        padding: 10px 12px;
-        margin-top: 8px;
-        border-radius: 6px;
+        background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #0284c7;
+        padding: 10px 12px; margin-top: 8px; border-radius: 6px;
     }
     .empty-bubble {
-        background-color: #f1f5f9;
-        border: 2px dashed #cbd5e1;
-        padding: 12px;
-        text-align: center;
-        border-radius: 8px;
-        color: #64748b;
-        font-size: 12px;
+        background-color: #f1f5f9; border: 2px dashed #cbd5e1; padding: 12px;
+        text-align: center; border-radius: 8px; color: #64748b; font-size: 12px;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# Banner Header
 st.markdown("""
 <div class="banner">
     <h1>📅 Kalender Jadwal Kunjungan Kolam</h1>
-    <p>Sentuh salah satu kotak tanggal pada kalender di bawah untuk melihat rincian jadwal.</p>
+    <p>Sentuh tombol tanggal di bawah untuk melihat rincian jadwal secara instan.</p>
 </div>
 """, unsafe_allow_html=True)
 
 jadwal_data = load_data()
 
-# -------------------------------------------------------------
-# FILTER BULAN & TAHUN
-# -------------------------------------------------------------
 col_b1, col_b2 = st.columns(2)
 today_dt = date.today()
 
@@ -198,9 +128,7 @@ with col_b2:
 
 bln_idx = list(BULAN_INDO.values()).index(bln_pilihan) + 1
 
-# -------------------------------------------------------------
-# PEMETAAN DATA EVENT PER TANGGAL
-# -------------------------------------------------------------
+# Pemetaan Event
 jml_hari_bulan = calendar.monthrange(thn_pilihan, bln_idx)[1]
 events_map = {date(thn_pilihan, bln_idx, d): [] for d in range(1, jml_hari_bulan + 1)}
 
@@ -212,70 +140,49 @@ for item in jadwal_data:
         rutin_list = item.get("HARI_RUTIN", [])
         if isinstance(rutin_list, list):
             for d in events_map.keys():
-                hari_nama = HARI_INDO[d.weekday()]
-                if hari_nama in rutin_list:
+                if HARI_INDO[d.weekday()] in rutin_list:
                     events_map[d].append(item)
-                    
     elif tgl_item and isinstance(tgl_item, date):
         if tgl_item.month == bln_idx and tgl_item.year == thn_pilihan:
             if tgl_item in events_map:
                 events_map[tgl_item].append(item)
 
-# -------------------------------------------------------------
-# RENDER TABEL KALENDER HTML
-# -------------------------------------------------------------
 st.markdown(f"### 🗓️ Bulan {bln_pilihan} {thn_pilihan}")
 
 calendar.setfirstweekday(calendar.SUNDAY)
 raw_weeks = calendar.monthcalendar(thn_pilihan, bln_idx)
 hari_names_singkat = ["Mgg", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"]
 
-html_table = "<div class='kalender-wrapper'><table class='kalender-table'><thead><tr>"
+# Header Hari
+cols_hdr = st.columns(7)
 for i, h_name in enumerate(hari_names_singkat):
-    c_color = "color: #dc2626;" if i == 0 else ("color: #16a34a;" if i == 5 else "")
-    html_table += f"<th style='{c_color}'>{h_name}</th>"
-html_table += "</tr></thead><tbody>"
+    c_color = "#dc2626" if i == 0 else ("#16a34a" if i == 5 else "#334155")
+    with cols_hdr[i]:
+        st.markdown(f"<p style='text-align: center; font-weight: bold; color: {c_color}; margin-bottom: 2px; font-size: 11px;'>{h_name}</p>", unsafe_allow_html=True)
 
-for week in raw_weeks:
-    html_table += "<tr>"
-    for day in week:
-        if day == 0:
-            html_table += "<td class='empty-cell'></td>"
-        else:
-            curr_date = date(thn_pilihan, bln_idx, day)
-            jml_ev = len(events_map[curr_date])
-            
-            is_sel = (curr_date == st.session_state.selected_date)
-            
-            td_classes = []
-            if jml_ev > 0:
-                td_classes.append("cell-booked-bg")
-            if is_sel:
-                td_classes.append("selected-box")
-            
-            td_class_str = f" class='{' '.join(td_classes)}'" if td_classes else ""
-            
-            badge_cls = "badge-booked" if jml_ev > 0 else "badge-empty"
-            badge_txt = f"{jml_ev} Rombel" if jml_ev > 0 else "Kosong"
-            
-            html_table += f"""
-            <td{td_class_str}>
-                <a href="?pilih_tgl={curr_date.isoformat()}" target="_self">
-                    <span class="cell-date">{day}</span>
-                    <span class="cell-badge {badge_cls}">{badge_txt}</span>
-                </a>
-            </td>
-            """
-    html_table += "</tr>"
+# Render Tombol Kalender Baris demi Baris
+for week_idx, week in enumerate(raw_weeks):
+    cols = st.columns(7)
+    for day_idx, day in enumerate(week):
+        with cols[day_idx]:
+            if day == 0:
+                st.markdown("<div style='height: 52px;'></div>", unsafe_allow_html=True)
+            else:
+                curr_date = date(thn_pilihan, bln_idx, day)
+                jml_ev = len(events_map[curr_date])
+                
+                if jml_ev > 0:
+                    btn_label = f"{day}\n🔴{jml_ev} Rmb"
+                else:
+                    btn_label = f"{day}\nKosong"
+                
+                # Tombol asli Streamlit dengan session state langsung (tanpa URL query param yang bikin bug)
+                if st.button(btn_label, key=f"btn_tgl_{week_idx}_{day_idx}_{day}"):
+                    st.session_state.selected_date = curr_date
 
-html_table += "</tbody></table></div>"
-
-st.markdown(html_table, unsafe_allow_html=True)
 st.markdown("<br>", unsafe_allow_html=True)
 
-# -------------------------------------------------------------
-# BUBBLE POP-UP RINCIAN JADWAL TANGGAL TERPILIH
-# -------------------------------------------------------------
+# Bagian Detail Rincian Tanggal Terpilih
 sel_date = st.session_state.selected_date
 sel_hari_nama = HARI_INDO[sel_date.weekday()]
 sel_bln_nama = BULAN_INDO[sel_date.month]
@@ -286,7 +193,6 @@ st.markdown(f"#### 💬 Detail Kunjungan: <span style='color: #0284c7;'>{tgl_for
 events_selected = []
 for item in jadwal_data:
     tipe_str = str(item.get("TIPE", "")).lower()
-    
     if item.get("TANGGAL_DATE") == sel_date:
         events_selected.append(item)
     elif tipe_str == "hari rutin / berulang" or item.get("HARI_RUTIN"):
