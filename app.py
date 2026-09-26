@@ -3,7 +3,7 @@ import pandas as pd
 import calendar
 from datetime import datetime, date
 from streamlit_gsheets import GSheetsConnection
-from st_click_detector import click_detector  # Modul penangkap klik
+from st_click_detector import click_detector
 
 # -------------------------------------------------------------
 # KONFIGURASI SPREADSHEET
@@ -141,21 +141,19 @@ for week in raw_weeks:
             badge_cls = "badge-booked" if jml_ev > 0 else "badge-empty"
             badge_txt = f"{jml_ev} Rombel" if jml_ev > 0 else "Kosong"
             
-            # Perubahan Utama: URL dihapus, diganti ID untuk ditangkap oleh click_detector
             html_code += f"<a href='#' id='{curr_date.isoformat()}' class='cal-cell{extra_cls}'><div class='c-num'>{day}</div><span class='c-badge {badge_cls}'>{badge_txt}</span></a>"
             
     html_code += "</div>"
 html_code += "</div></div>"
 
-# Eksekusi penangkap klik (Tanpa st.markdown)
+# Eksekusi penangkap klik
 clicked_date = click_detector(html_code, key="cal_detector")
 
-# Logika jika tanggal diklik
 if clicked_date:
     parsed_tgl = date.fromisoformat(clicked_date)
     if st.session_state.selected_date != parsed_tgl:
         st.session_state.selected_date = parsed_tgl
-        st.rerun() # Memuat ulang komponen UI secara internal (mulus)
+        st.rerun()
 
 # -------------------------------------------------------------
 # BUBBLE POP-UP RINCIAN JADWAL TANGGAL TERPILIH
@@ -178,18 +176,18 @@ for item in jadwal_data:
         if isinstance(rutin_list, list) and sel_hari_nama in rutin_list:
             events_selected.append(item)
 
-# Wadah Bubble Rincian
-st.markdown("""
+# Merangkai seluruh HTML rincian ke dalam satu variabel agar tidak ada kotak kosong
+detail_html = """
 <style>
     .bubble-container { background: #ffffff; border: 2px solid #0284c7; border-radius: 12px; padding: 18px; box-shadow: 0 4px 15px rgba(2, 132, 199, 0.15); margin-top: 5px; }
     .event-item { background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #0284c7; padding: 10px 14px; margin-top: 10px; border-radius: 6px; }
     .empty-bubble { background-color: #f1f5f9; border: 2px dashed #cbd5e1; padding: 15px; text-align: center; border-radius: 8px; color: #64748b; font-size: 13px; }
 </style>
 <div class="bubble-container">
-""", unsafe_allow_html=True)
+"""
 
 if events_selected:
-    st.markdown(f"<p style='color: #0369a1; font-weight: bold; margin-bottom: 8px;'>Ditemukan {len(events_selected)} jadwal / kegiatan pada tanggal ini:</p>", unsafe_allow_html=True)
+    detail_html += f"<p style='color: #0369a1; font-weight: bold; margin-bottom: 8px;'>Ditemukan {len(events_selected)} jadwal / kegiatan pada tanggal ini:</p>"
     for ev in events_selected:
         sekolah = ev.get("SEKOLAH", "-")
         pic = ev.get("PIC", "-")
@@ -203,7 +201,7 @@ if events_selected:
             
         warna_badge = "#16a34a" if kategori.lower() == "kegiatan rutin" else "#0284c7"
 
-        st.markdown(f"""
+        detail_html += f"""
         <div class="event-item">
             <div style="float: right; background-color: {warna_badge}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: bold;">
                 {kategori}
@@ -213,14 +211,16 @@ if events_selected:
             <div style="font-size: 12px; color: #475569;">👥 <b>Jumlah:</b> {jumlah} Orang</div>
             <div style="font-size: 11px; color: #64748b; font-style: italic; margin-top: 3px;">📝 Catatan: {ket}</div>
         </div>
-        """, unsafe_allow_html=True)
+        """
 else:
-    st.markdown("""
+    detail_html += """
     <div class="empty-bubble">
         <div style="font-size: 20px; margin-bottom: 3px;">🏖️</div>
         <b>Status: KOSONG</b><br>
         Belum ada jadwal rombongan atau bookingan pada tanggal ini.
     </div>
-    """, unsafe_allow_html=True)
+    """
 
-st.markdown("</div>", unsafe_allow_html=True)
+detail_html += "</div>"
+
+st.markdown(detail_html, unsafe_allow_html=True)
