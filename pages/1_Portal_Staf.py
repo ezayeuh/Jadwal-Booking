@@ -3,12 +3,8 @@ import pandas as pd
 from datetime import datetime, date
 from streamlit_gsheets import GSheetsConnection
 
-# -------------------------------------------------------------
-# KONFIGURASI SPREADSHEET
-# -------------------------------------------------------------
 SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1XsYvF0pcBYjRm-h_oPf2jag3OwUFLK43bhRoyE-yh-M/edit"
 
-# 1. KONFIGURASI HALAMAN
 st.set_page_config(
     page_title="Portal Staf - Kelola Jadwal",
     page_icon="🔒",
@@ -16,29 +12,20 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# KAMUS HARI DAN BULAN BAHASA INDONESIA
 HARI_INDO = {0: "Senin", 1: "Selasa", 2: "Rabu", 3: "Kamis", 4: "Jumat", 5: "Sabtu", 6: "Minggu"}
 BULAN_INDO = {
     1: "Januari", 2: "Februari", 3: "Maret", 4: "April", 5: "Mei", 6: "Juni",
     7: "Juli", 8: "Agustus", 9: "September", 10: "Oktober", 11: "November", 12: "Desember"
 }
 
-# SEMBUNYIKAN SIDEBAR TOTAL
 st.markdown("""
 <style>
-    [data-testid="stSidebar"] {
-        display: none !important;
-    }
-    [data-testid="stSidebarCollapsedControl"] {
-        display: none !important;
-    }
-    [data-testid="stSidebarNav"] {
-        display: none !important;
-    }
+    [data-testid="stSidebar"] { display: none !important; }
+    [data-testid="stSidebarCollapsedControl"] { display: none !important; }
+    [data-testid="stSidebarNav"] { display: none !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# KONEKSI GOOGLE SHEETS
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def clean_text(value, default="-"):
@@ -75,7 +62,6 @@ def load_data():
                     item["HARI_RUTIN"] = []
             elif not isinstance(item.get("HARI_RUTIN"), list):
                 item["HARI_RUTIN"] = []
-
         return data
     except Exception:
         return []
@@ -120,7 +106,6 @@ if password == "staf123":
 
         tab_manual, tab_excel = st.tabs(["📝 Form Manual", "📊 Import Excel / CSV"])
 
-        # --- TAB 1: FORM MANUAL ---
         with tab_manual:
             tipe_kunjungan = st.radio("Metode Tanggal:", ["Pilih Bebas Beberapa Tanggal", "Hari Rutin / Berulang"])
 
@@ -175,11 +160,9 @@ if password == "staf123":
                     if sekolah_clean and pic_clean:
                         updated_count = 0
                         added_count = 0
-
                         jumlah_clean = clean_text(jumlah_in)
                         if str(jumlah_clean).endswith(".0"):
                             jumlah_clean = str(jumlah_clean).replace(".0", "")
-
                         ket_clean = clean_text(ket_in)
                         kategori_clean = clean_text(kategori_in, "Sekolah")
 
@@ -251,10 +234,8 @@ if password == "staf123":
                     else:
                         st.error("⚠️ Nama Sekolah/Grup & PIC wajib diisi!")
 
-        # --- TAB 2: IMPORT VIA EXCEL / CSV ---
         with tab_excel:
             st.caption("Unggah file Excel (.xlsx / .xls) atau CSV (.csv). Kolom kosong otomatis diisi '-'.")
-
             uploaded_file = st.file_uploader("Pilih File Excel/CSV:", type=["xlsx", "xls", "csv"])
 
             if uploaded_file is not None:
@@ -298,7 +279,6 @@ if password == "staf123":
                                 else:
                                     tgl_str = str(tgl_val).split(" ")[0].strip()
                                     tgl_parsed = datetime.strptime(tgl_str, "%Y-%m-%d").date()
-
                                 tgl_text_val = f"{HARI_INDO[tgl_parsed.weekday()]}, {tgl_parsed.day:02d} {BULAN_INDO[tgl_parsed.month]} {tgl_parsed.year}"
                             except Exception:
                                 tipe_val = "Hari Rutin / Berulang"
@@ -340,7 +320,6 @@ if password == "staf123":
                 except Exception as e:
                     st.error(f"Gagal membaca file. Pastikan format kolom sesuai. Error: {e}")
 
-    # --- KOLOM KANAN: KELOLA & TABEL JADWAL ---
     with col_manage:
         st.subheader("📋 Daftar Jadwal Tersimpan")
 
