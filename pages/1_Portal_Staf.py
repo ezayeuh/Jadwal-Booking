@@ -16,6 +16,13 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+# KAMUS HARI DAN BULAN BAHASA INDONESIA
+HARI_INDO = {0: "Senin", 1: "Selasa", 2: "Rabu", 3: "Kamis", 4: "Jumat", 5: "Sabtu", 6: "Minggu"}
+BULAN_INDO = {
+    1: "Januari", 2: "Februari", 3: "Maret", 4: "April", 5: "Mei", 6: "Juni",
+    7: "Juli", 8: "Agustus", 9: "September", 10: "Oktober", 11: "November", 12: "Desember"
+}
+
 # SEMBUNYIKAN SIDEBAR TOTAL
 st.markdown("""
 <style>
@@ -51,7 +58,12 @@ def load_data():
         for item in data:
             if item.get("TANGGAL_DATE") and pd.notna(item["TANGGAL_DATE"]):
                 try:
-                    item["TANGGAL_DATE"] = date.fromisoformat(str(item["TANGGAL_DATE"]).split(" ")[0])
+                    parsed_date = date.fromisoformat(str(item["TANGGAL_DATE"]).split(" ")[0])
+                    item["TANGGAL_DATE"] = parsed_date
+                    # Ubah TANGGAL_TEXT ke Bahasa Indonesia
+                    hari_str = HARI_INDO[parsed_date.weekday()]
+                    bln_str = BULAN_INDO[parsed_date.month]
+                    item["TANGGAL_TEXT"] = f"{hari_str}, {parsed_date.day:02d} {bln_str} {parsed_date.year}"
                 except Exception:
                     item["TANGGAL_DATE"] = None
             else:
@@ -70,7 +82,6 @@ def load_data():
         return []
 
 def save_data(data):
-    # Kolom default tanpa WAKTU
     default_columns = [
         "TIPE", "TANGGAL_DATE", "HARI_RUTIN", "TANGGAL_TEXT", 
         "SEKOLAH", "PIC", "JUMLAH", "KETERANGAN", "KATEGORI"
@@ -117,9 +128,6 @@ if password == "staf123":
             selected_dates_final = []
             hari_rutin_selected = []
 
-            hari_map = {0: "Senin", 1: "Selasa", 2: "Rabu", 3: "Kamis", 4: "Jumat", 5: "Sabtu", 6: "Minggu"}
-            bln_map = {1: "Jan", 2: "Feb", 3: "Mar", 4: "Apr", 5: "Mei", 6: "Jun", 7: "Jul", 8: "Agu", 9: "Sep", 10: "Okt", 11: "Nov", 12: "Des"}
-
             if tipe_kunjungan == "Pilih Bebas Beberapa Tanggal":
                 st.caption("Pilih tanggal satu per satu lalu klik 'Tambah':")
                 col_d1, col_d2 = st.columns([2, 1])
@@ -136,7 +144,7 @@ if password == "staf123":
                 if st.session_state.temp_dates:
                     st.write("**Daftar Tanggal Terpilih:**")
                     for d_item in st.session_state.temp_dates:
-                        t_label = f"{hari_map[d_item.weekday()]}, {d_item.day:02d} {bln_map[d_item.month]} {d_item.year}"
+                        t_label = f"{HARI_INDO[d_item.weekday()]}, {d_item.day:02d} {BULAN_INDO[d_item.month]} {d_item.year}"
                         st.markdown(f"- 🗓️ `{t_label}`")
                     if st.button("🗑️ Hapus Pilihan Tanggal"):
                         st.session_state.temp_dates = []
@@ -181,7 +189,7 @@ if password == "staf123":
                                 st.error("⚠️ Pilih minimal 1 tanggal terlebih dahulu!")
                             else:
                                 for d in selected_dates_final:
-                                    tgl_text = f"{hari_map[d.weekday()]}, {d.day:02d} {bln_map[d.month]} {d.year}"
+                                    tgl_text = f"{HARI_INDO[d.weekday()]}, {d.day:02d} {BULAN_INDO[d.month]} {d.year}"
                                     entry = {
                                         "TIPE": "Tanggal Spesifik",
                                         "TANGGAL_DATE": d,
@@ -292,7 +300,7 @@ if password == "staf123":
                                     tgl_str = str(tgl_val).split(" ")[0].strip()
                                     tgl_parsed = datetime.strptime(tgl_str, "%Y-%m-%d").date()
 
-                                tgl_text_val = f"{hari_map[tgl_parsed.weekday()]}, {tgl_parsed.day:02d} {bln_map[tgl_parsed.month]} {tgl_parsed.year}"
+                                tgl_text_val = f"{HARI_INDO[tgl_parsed.weekday()]}, {tgl_parsed.day:02d} {BULAN_INDO[tgl_parsed.month]} {tgl_parsed.year}"
                             except Exception:
                                 tipe_val = "Hari Rutin / Berulang"
                                 for h_name in hari_names_list:
