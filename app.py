@@ -231,6 +231,8 @@ for item in jadwal_data:
 # -------------------------------------------------------------
 st.markdown(f"### 🗓️ Bulan {bln_pilihan} {thn_pilihan}")
 
+# Mengatur agar hari Minggu menjadi kolom pertama (Index 6 di calendar.setfirstweekday(calendar.SUNDAY))
+calendar.setfirstweekday(calendar.SUNDAY)
 cal_weeks = calendar.monthcalendar(thn_pilihan, bln_idx)
 hari_names_singkat = ["Mgg", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"]
 
@@ -243,13 +245,10 @@ for i, h_name in enumerate(hari_names_singkat):
     html_code += f"<div class='cal-th' style='color: {c_color};'>{h_name}</div>"
 html_code += "</div>"
 
-# Baris Kotak Tanggal
+# Baris Kotak Tanggal (Sesuai setfirstweekday Minggu)
 for week in cal_weeks:
-    # Geser Minggu (indeks 6) ke posisi awal
-    adjusted_week = [week[6], week[0], week[1], week[2], week[3], week[4], week[5]]
-    
     html_code += "<div class='cal-grid-row'>"
-    for day in adjusted_week:
+    for day in week:
         if day == 0:
             html_code += "<div class='cell-empty'></div>"
         else:
