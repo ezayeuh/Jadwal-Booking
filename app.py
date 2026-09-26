@@ -8,17 +8,14 @@ from streamlit_gsheets import GSheetsConnection
 # -------------------------------------------------------------
 SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1XsYvF0pcBYjRm-h_oPf2jag3OwUFLK43bhRoyE-yh-M/edit"
 
-# 1. KONFIGURASI HALAMAN UTAMA
 st.set_page_config(
     page_title="Papan Informasi Jadwal Kunjungan Kolam",
     page_icon="🏊",
     layout="wide"
 )
 
-# KONEKSI GOOGLE SHEETS
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# KAMUS HARI DAN BULAN BAHASA INDONESIA
 HARI_INDO = {0: "Senin", 1: "Selasa", 2: "Rabu", 3: "Kamis", 4: "Jumat", 5: "Sabtu", 6: "Minggu"}
 BULAN_INDO = {
     1: "Januari", 2: "Februari", 3: "Maret", 4: "April", 5: "Mei", 6: "Juni",
@@ -33,7 +30,6 @@ def load_data():
 
         data = df.to_dict(orient="records")
         for item in data:
-            # Safe conversion untuk TANGGAL_DATE
             tgl_raw = item.get("TANGGAL_DATE")
             if pd.notna(tgl_raw) and tgl_raw:
                 try:
@@ -47,7 +43,6 @@ def load_data():
             else:
                 item["TANGGAL_DATE"] = None
 
-            # Safe conversion untuk HARI_RUTIN
             hr_raw = item.get("HARI_RUTIN")
             if isinstance(hr_raw, str):
                 try:
@@ -62,7 +57,6 @@ def load_data():
         st.error(f"Gagal memuat data dari Google Sheets: {e}")
         return []
 
-# CSS DESAIN KUSTOM DASHBOARD
 st.markdown("""
 <style>
     .banner {
@@ -149,12 +143,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# -------------------------------------------------------------
-# MEMUAT DATA & TAMPILAN DASHBOARD
-# -------------------------------------------------------------
 jadwal_data = load_data()
 
-# 1. BANNER UTAMA
 st.markdown("""
 <div class="banner">
     <h1>🏊 Papan Informasi Jadwal Kunjungan Kolam</h1>
@@ -162,7 +152,6 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# 2. METRIK RINGKASAN
 tot_agenda = len(jadwal_data)
 tot_sekolah = sum(1 for item in jadwal_data if str(item.get("KATEGORI", "")).lower() == "sekolah")
 tot_rutin = sum(1 for item in jadwal_data if str(item.get("TIPE", "")).lower() == "hari rutin / berulang" or str(item.get("KATEGORI", "")).lower() == "kegiatan rutin")
@@ -171,31 +160,30 @@ col_m1, col_m2, col_m3 = st.columns(3)
 
 with col_m1:
     st.markdown(f"""
-    <div class="metric-card">
-        <div class="metric-title">TOTAL AGENDA TERDAFTAR</div>
-        <div class="metric-value">{tot_agenda} <span style="font-size: 14px; font-weight: normal; color: #64748b;">Rombongan</span></div>
-    </div>
-    """, unsafe_allow_html=True)
+<div class="metric-card">
+<div class="metric-title">TOTAL AGENDA TERDAFTAR</div>
+<div class="metric-value">{tot_agenda} <span style="font-size: 14px; font-weight: normal; color: #64748b;">Rombongan</span></div>
+</div>
+""", unsafe_allow_html=True)
 
 with col_m2:
     st.markdown(f"""
-    <div class="metric-card">
-        <div class="metric-title">KUNJUNGAN SEKOLAH</div>
-        <div class="metric-value" style="color: #0284c7;">{tot_sekolah}</div>
-    </div>
-    """, unsafe_allow_html=True)
+<div class="metric-card">
+<div class="metric-title">KUNJUNGAN SEKOLAH</div>
+<div class="metric-value" style="color: #0284c7;">{tot_sekolah}</div>
+</div>
+""", unsafe_allow_html=True)
 
 with col_m3:
     st.markdown(f"""
-    <div class="metric-card">
-        <div class="metric-title">KEGIATAN RUTIN</div>
-        <div class="metric-value" style="color: #16a34a;">{tot_rutin}</div>
-    </div>
-    """, unsafe_allow_html=True)
+<div class="metric-card">
+<div class="metric-title">KEGIATAN RUTIN</div>
+<div class="metric-value" style="color: #16a34a;">{tot_rutin}</div>
+</div>
+""", unsafe_allow_html=True)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# 3. FILTER TANGGAL MINGGUAN
 col_filter, _ = st.columns([1.2, 2])
 with col_filter:
     filter_date = st.date_input("🗓️ Tampilkan Jadwal Minggu Dari Tanggal:", value=date.today())
@@ -210,7 +198,6 @@ st.markdown("<br>", unsafe_allow_html=True)
 
 st.subheader("🗓️ Jadwal Kunjungan Minggu Ini")
 
-# 4. GRID TAMPILAN 7 HARI KALENDER
 cols_days = st.columns(7)
 hari_names = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
 today_date = date.today()
@@ -232,17 +219,15 @@ for idx, col in enumerate(cols_days):
     card_class = "day-card-today" if is_today else "day-card"
 
     with col:
-        # Render Header Hari
         badge_html = "<span class='today-badge'>HARI INI</span>" if is_today else ""
-        st.markdown(f"""
-        <div class="{card_class}">
-            <div><b>{hari_nama}</b> <span style='float: right; color: #64748b; font-size: 12px;'>{curr_date.strftime('%d/%m')}</span></div>
-            {badge_html}
-            <hr style='margin: 8px 0; border: none; border-top: 1px solid #e2e8f0;'>
-        </div>
-        """, unsafe_allow_html=True)
+        header_html = f"""<div class="{card_class}">
+<div><b>{hari_nama}</b> <span style='float: right; color: #64748b; font-size: 12px;'>{curr_date.strftime('%d/%m')}</span></div>
+{badge_html}
+<hr style='margin: 8px 0; border: none; border-top: 1px solid #e2e8f0;'>
+</div>"""
+        
+        st.markdown(header_html, unsafe_allow_html=True)
 
-        # Render Item Acara / Event
         if events_today:
             for ev in events_today:
                 sekolah = ev.get("SEKOLAH") if pd.notna(ev.get("SEKOLAH")) and ev.get("SEKOLAH") else "-"
@@ -253,12 +238,11 @@ for idx, col in enumerate(cols_days):
                 if jumlah.endswith(".0"):
                     jumlah = jumlah.replace(".0", "")
 
-                st.markdown(f"""
-                <div class="event-card">
-                    <strong style="color: #0284c7; font-size: 13px;">{sekolah}</strong><br>
-                    <span style="color: #475569;">👤 {pic}</span><br>
-                    <span style="color: #475569;">👥 {jumlah}</span>
-                </div>
-                """, unsafe_allow_html=True)
+                event_html = f"""<div class="event-card">
+<strong style="color: #0284c7; font-size: 13px;">{sekolah}</strong><br>
+<span style="color: #475569;">👤 {pic}</span><br>
+<span style="color: #475569;">👥 {jumlah}</span>
+</div>"""
+                st.markdown(event_html, unsafe_allow_html=True)
         else:
             st.markdown("<div class='empty-text'>Tidak Ada Kunjungan</div>", unsafe_allow_html=True)
