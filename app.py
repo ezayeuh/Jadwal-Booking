@@ -4,6 +4,7 @@ import calendar
 from datetime import datetime, date
 from streamlit_gsheets import GSheetsConnection
 from st_click_detector import click_detector
+from streamlit_autorefresh import st_autorefresh
 
 # -------------------------------------------------------------
 # KONFIGURASI SPREADSHEET & HALAMAN
@@ -15,6 +16,9 @@ st.set_page_config(
     page_icon="📅",
     layout="wide"
 )
+
+# Refresh otomatis setiap 15 menit (900.000 ms) agar layar tidak sleep dan data ter-update
+st_autorefresh(interval=900000, limit=None, key="papan_refresh")
 
 # Sembunyikan Sidebar / Navigasi Halaman di Dashboard Pengunjung
 st.markdown("""
@@ -101,7 +105,7 @@ events_map = {date(thn_pilihan, bln_idx, d): [] for d in range(1, jml_hari_bulan
 for item in jadwal_data:
     tipe_str = str(item.get("TIPE", "")).lower()
     tgl_item = item.get("TANGGAL_DATE")
-    
+
     if tipe_str == "hari rutin / berulang" or item.get("HARI_RUTIN"):
         rutin_list = item.get("HARI_RUTIN", [])
         if isinstance(rutin_list, list):
@@ -109,7 +113,7 @@ for item in jadwal_data:
                 hari_nama = HARI_INDO[d.weekday()]
                 if hari_nama in rutin_list:
                     events_map[d].append(item)
-                    
+
     elif tgl_item and isinstance(tgl_item, date):
         if tgl_item.month == bln_idx and tgl_item.year == thn_pilihan:
             if tgl_item in events_map:
@@ -158,11 +162,11 @@ for week in raw_weeks:
             curr_date = date(thn_pilihan, bln_idx, day)
             jml_ev = len(events_map[curr_date])
             is_weekend = (idx_col in [5, 6]) # 5 = Sabtu, 6 = Minggu
-            
+
             extra_cls = ""
             badge_cls = "badge-empty"
             badge_txt = "Kosong"
-            
+
             if jml_ev > 0:
                 badge_txt = f"{jml_ev} Agenda"
                 if is_weekend:
@@ -175,12 +179,12 @@ for week in raw_weeks:
                 if is_weekend:
                     extra_cls += " cell-weekend"
                     badge_cls = "badge-weekend"
-            
+
             if curr_date == st.session_state.selected_date:
                 extra_cls += " cell-selected"
-                
+
             html_code += f"<a href='#' id='{curr_date.isoformat()}' class='cal-cell{extra_cls}'><div class='c-num'>{day}</div><span class='c-badge {badge_cls}'>{badge_txt}</span></a>"
-            
+
     html_code += "</div>"
 html_code += "</div></div>"
 
@@ -206,7 +210,7 @@ st.markdown(f"#### 💬 Detail Kunjungan: <span style='color: #0284c7;'>{tgl_for
 events_selected = []
 for item in jadwal_data:
     tipe_str = str(item.get("TIPE", "")).lower()
-    
+
     if item.get("TANGGAL_DATE") == sel_date:
         events_selected.append(item)
     elif tipe_str == "hari rutin / berulang" or item.get("HARI_RUTIN"):
@@ -229,12 +233,12 @@ if events_selected:
         pic = ev.get("PIC", "-")
         ket = ev.get("KETERANGAN", "-")
         kategori = ev.get("KATEGORI", "Sekolah")
-        
+
         jumlah_raw = ev.get("JUMLAH")
         jumlah = str(jumlah_raw) if pd.notna(jumlah_raw) and jumlah_raw else "-"
         if jumlah.endswith(".0"):
             jumlah = jumlah.replace(".0", "")
-            
+
         warna_badge = "#16a34a" if kategori.lower() == "kegiatan rutin" else "#0284c7"
 
         detail_html += f"""
