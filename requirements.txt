@@ -3,3 +3,4 @@ pandas
 openpyxl
 st-gsheets-connection
 st-click-detector
+streamlit-autorefresh
