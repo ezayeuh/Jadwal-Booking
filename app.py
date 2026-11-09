@@ -9,7 +9,7 @@ from streamlit_autorefresh import st_autorefresh
 # -------------------------------------------------------------
 # KONFIGURASI SPREADSHEET & HALAMAN
 # -------------------------------------------------------------
-SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1ajqbXbTib53Rr5hFGGuoY8envfUtkFpB/edit?gid=1469221539#gid=1469221539"
+SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/14XyLKqesumeBBDhPGlko5Iea3a0PG4nyJw-m_eS_BCY/edit?gid=1469221539#gid=1469221539"
 
 st.set_page_config(
     page_title="Papan Informasi Jadwal Kunjungan Kolam",
@@ -69,7 +69,7 @@ def load_and_parse_data():
             jumlah_raw = item.get("JUMLAH")
             ket_raw = item.get("KETERANGAN")
 
-            # Deteksi jika baris memiliki tanggal baru
+            # Deteksi baris yang memiliki tanggal baru
             if pd.notna(tgl_raw) and str(tgl_raw).strip() != "" and str(tgl_raw).upper() != "TANGGAL":
                 flush_current()
                 current_grup = []
