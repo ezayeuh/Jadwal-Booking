@@ -3,73 +3,58 @@ import pandas as pd
 from datetime import date
 from streamlit_gsheets import GSheetsConnection
 
-SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/14XyLKqesumeBBDhPGlko5Iea3a0PG4nyJw-m_eS_BCY/edit"
+# -------------------------------------------------------------
+# GANTI LINK INI DENGAN LINK GOOGLE SPREADSHEET YANG BARU DIBUAT (BUKAN .xlsx)
+SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/14XyLKqesumeBBDhPGlko5Iea3a0PG4nyJw-m_eS_BCY/edit" 
+# -------------------------------------------------------------
 
-st.set_page_config(
-    page_title="Portal Staff - Jadwal Kunjungan",
-    page_icon="🔐",
-    layout="wide"
-)
+st.set_page_config(page_title="Portal Staff", page_icon="🔐", layout="wide")
+st.title("🔐 Portal Staff / Admin")
 
-st.title("🔐 Portal Staff / Admin - Pengelolaan Jadwal Kunjungan")
-st.write("Kelola data booking kolam sesuai format tabel master Excel (NO, TANGGAL, SEKOLAH, JUMLAH, KETERANGAN).")
-
-PASSWORD_STAFF = "admin123"  # Ubah sesuai keinginan
-input_password = st.text_input("Masukkan Password Staff:", type="password")
-
-if input_password != PASSWORD_STAFF:
-    st.warning("⚠️ Silakan masukkan password yang benar untuk mengakses panel input data.")
+if st.text_input("Password:", type="password") != "admin123":
+    st.warning("Masukkan password admin.")
     st.stop()
-
-st.success("✅ Login Staff Berhasil!")
 
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 try:
     df = conn.read(spreadsheet=SPREADSHEET_URL, worksheet="DETAIL", ttl=0)
 except Exception as e:
-    st.error(f"Gagal memuat data: {e}")
+    st.error(f"Gagal memuat data. Pastikan link bukan file .xlsx: {e}")
     df = pd.DataFrame()
 
 st.divider()
-st.subheader("📋 Tabel Data Jadwal Saat Ini")
 if not df.empty:
     st.dataframe(df, use_container_width=True)
-else:
-    st.info("Spreadsheet masih kosong.")
 
-st.divider()
-st.subheader("➕ Tambah Data Jadwal Baru")
+st.subheader("➕ Tambah Baris Data")
+st.info("💡 Karena Excel Anda memiliki baris yang menyambung (kontak di baris bawahnya), Anda bisa menggunakan Enter di form ini untuk membuat baris baru pada satu sel.")
 
-with st.form("form_tambah_staff"):
+with st.form("form_tambah"):
     col1, col2 = st.columns(2)
     
     with col1:
-        no_urut = st.text_input("NO (Nomor / Opsional)")
-        tgl_input = st.date_input("TANGGAL Kunjungan", value=date.today())
-        
-        st.markdown("**Informasi Grup & Kontak (Kolom SEKOLAH)**")
-        nama_grup = st.text_input("Nama Grup / Instansi / Sekolah")
-        nama_pic = st.text_input("Nama Penanggung Jawab (PIC)")
-        kontak_pic = st.text_input("Nomor Kontak / Telepon")
+        tgl_input = st.date_input("Tanggal")
+        sekolah = st.text_area("Sekolah / PIC / Kontak (Bisa Enter ke bawah)")
         
     with col2:
-        jumlah = st.text_input("JUMLAH (Contoh: 250 SISWA / @13 RB / 30 ORANG)")
-        keterangan = st.text_area("KETERANGAN (Catatan, DP, Lunas, Fasilitas, dll)")
+        jumlah = st.text_area("Jumlah / Harga Tiket (Bisa Enter)")
+        keterangan = st.text_area("Keterangan Tambahan")
         
-    submit_btn = st.form_submit_button("Simpan Data ke Spreadsheet")
-    
-    if submit_btn:
-        if not nama_grup:
-            st.error("Nama Instansi/Grup wajib diisi!")
+    if st.form_submit_button("Simpan Data"):
+        if not sekolah:
+            st.error("Sekolah wajib diisi!")
         else:
-            formatted_tgl_str = tgl_input.strftime("%A, %d %b %Y").upper()
-            sekolah_gabungan = f"{nama_grup} | {nama_pic} | {kontak_pic}".strip(" |")
+            hari_indo = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
+            bulan_indo = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
+            
+            # Format: KAMIS, 30 November 2026
+            tgl_format = f"{hari_indo[tgl_input.weekday()].upper()}, {tgl_input.day} {bulan_indo[tgl_input.month-1]} {tgl_input.year}"
             
             new_row = pd.DataFrame([{
-                "NO": no_urut,
-                "TANGGAL": formatted_tgl_str,
-                "SEKOLAH": sekolah_gabungan,
+                "NO": "", 
+                "TANGGAL": tgl_format,
+                "SEKOLAH": sekolah,
                 "JUMLAH": jumlah,
                 "KETERANGAN": keterangan
             }])
@@ -78,7 +63,7 @@ with st.form("form_tambah_staff"):
             
             try:
                 conn.update(spreadsheet=SPREADSHEET_URL, worksheet="DETAIL", data=updated_df)
-                st.success("🎉 Data berhasil ditambahkan dan disinkronkan ke Google Sheets!")
+                st.success("✅ Data berhasil disimpan!")
                 st.rerun()
             except Exception as e:
-                st.error(f"Gagal menyimpan ke Google Sheets: {e}")
+                st.error(f"Gagal menyimpan (Pastikan ini Google Sheets asli): {e}")
