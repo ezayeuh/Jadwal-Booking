@@ -3,7 +3,7 @@ import pandas as pd
 from datetime import date
 from streamlit_gsheets import GSheetsConnection
 
-SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1ajqbXbTib53Rr5hFGGuoY8envfUtkFpB/edit?gid=1469221539#gid=1469221539"
+SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/14XyLKqesumeBBDhPGlko5Iea3a0PG4nyJw-m_eS_BCY/edit?gid=1469221539#gid=1469221539"
 
 st.set_page_config(
     page_title="Portal Staff - Jadwal Kunjungan",
@@ -49,7 +49,6 @@ with st.form("form_tambah_staff"):
         no_urut = st.text_input("NO (Nomor / Opsional)")
         tgl_input = st.date_input("TANGGAL Kunjungan", value=date.today())
         
-        # Kolom SEKOLAH: dirancang fleksibel untuk Nama Grup, Penanggung Jawab, & Kontak
         st.markdown("**Informasi Grup & Kontak (Kolom SEKOLAH)**")
         nama_grup = st.text_input("Nama Grup / Instansi / Sekolah")
         nama_pic = st.text_input("Nama Penanggung Jawab (PIC)")
@@ -66,8 +65,6 @@ with st.form("form_tambah_staff"):
             st.error("Nama Instansi/Grup wajib diisi!")
         else:
             formatted_tgl_str = tgl_input.strftime("%A, %d %b %Y").upper()
-            
-            # Menggabungkan informasi grup, PIC, dan kontak ke dalam satu string kolom SEKOLAH agar konsisten dengan format Excel asli
             sekolah_gabungan = f"{nama_grup} | {nama_pic} | {kontak_pic}".strip(" |")
             
             new_row = pd.DataFrame([{
