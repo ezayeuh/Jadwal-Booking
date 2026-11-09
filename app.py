@@ -8,269 +8,179 @@ from st_click_detector import click_detector
 from streamlit_autorefresh import st_autorefresh
 
 # -------------------------------------------------------------
-# KONFIGURASI SPREADSHEET & HALAMAN
+# KONFIGURASI
 # -------------------------------------------------------------
-SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/14XyLKqesumeBBDhPGlko5Iea3a0PG4nyJw-m_eS_BCY/edit"
+# GANTI LINK INI DENGAN LINK GOOGLE SPREADSHEET YANG BARU DIBUAT (BUKAN .xlsx)
+SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/14XyLKqesumeBBDhPGlko5Iea3a0PG4nyJw-m_eS_BCY/edit" 
 
-st.set_page_config(
-    page_title="Papan Informasi Jadwal Kunjungan Kolam",
-    page_icon="📅",
-    layout="wide"
-)
-
-# Refresh otomatis setiap 15 menit agar layar tidak sleep
+st.set_page_config(page_title="Jadwal Kolam", page_icon="📅", layout="wide")
 st_autorefresh(interval=900000, limit=None, key="papan_refresh")
 
-# Sembunyikan Sidebar / Navigasi Halaman di Dashboard Pengunjung
-st.markdown("""
-<style>
-    [data-testid="stSidebar"] {
-        display: none;
-    }
-</style>
-""", unsafe_allow_html=True)
+# Sembunyikan Sidebar di Publik
+st.markdown("""<style>[data-testid="stSidebar"] {display: none;}</style>""", unsafe_allow_html=True)
 
 if 'selected_date' not in st.session_state:
     st.session_state.selected_date = date.today()
 
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-HARI_INDO = {0: "Senin", 1: "Selasa", 2: "Rabu", 3: "Kamis", 4: "Jumat", 5: "Sabtu", 6: "Minggu"}
 BULAN_INDO = {
     1: "Januari", 2: "Februari", 3: "Maret", 4: "April", 5: "Mei", 6: "Juni",
     7: "Juli", 8: "Agustus", 9: "September", 10: "Oktober", 11: "November", 12: "Desember"
 }
+HARI_INDO = {0: "Senin", 1: "Selasa", 2: "Rabu", 3: "Kamis", 4: "Jumat", 5: "Sabtu", 6: "Minggu"}
 
-def load_and_parse_data():
+def parse_indonesian_date(tgl_str):
+    """Fungsi cerdas membaca tanggal seperti 'MINGGU, 19 November 2026' atau 'KAMIS, 30 November'"""
+    tgl_str = str(tgl_str).upper().strip()
+    b_num = None
+    for num, name in BULAN_INDO.items():
+        if name.upper() in tgl_str or name[:3].upper() in tgl_str:
+            b_num = num
+            break
+            
+    if b_num:
+        nums = re.findall(r'\d+', tgl_str)
+        if nums:
+            day_val = int(nums[0])
+            year_val = date.today().year # Default tahun saat ini jika tidak ditulis
+            for n in nums[1:]:
+                if len(n) == 4:
+                    year_val = int(n)
+                    break
+            try:
+                return date(year_val, b_num, day_val)
+            except:
+                return None
+    return None
+
+def load_data():
     try:
-        # Membaca sheet bernama 'DETAIL' sesuai file Excel Anda
+        # Ganti worksheet="DETAIL" menjadi nama sheet yang ada di bawah file Anda (biasanya "Sheet1" atau "DETAIL")
         df = conn.read(spreadsheet=SPREADSHEET_URL, worksheet="DETAIL", ttl=0)
-        if df is None or df.empty:
-            return []
+        if df.empty: return []
 
         data = df.to_dict(orient="records")
         parsed_events = []
         current_date = None
-        
-        current_grup = []
-        current_jumlah = []
-        current_ket = []
+        current_grup, current_jumlah, current_ket = [], [], []
 
-        def flush_current():
+        def simpan_grup_sebelumnya():
             if current_date and current_grup:
                 parsed_events.append({
                     "TANGGAL_DATE": current_date,
-                    "SEKOLAH": " | ".join([str(x) for x in current_grup if pd.notna(x) and str(x).strip() != ""]),
-                    "JUMLAH": " | ".join([str(x) for x in current_jumlah if pd.notna(x) and str(x).strip() != ""]) if current_jumlah else "-",
-                    "KETERANGAN": " | ".join([str(x) for x in current_ket if pd.notna(x) and str(x).strip() != ""]) if current_ket else "-"
+                    "SEKOLAH": "<br>".join(current_grup),
+                    "JUMLAH": "<br>".join(current_jumlah) if current_jumlah else "-",
+                    "KETERANGAN": "<br>".join(current_ket) if current_ket else "-"
                 })
 
-        for item in data:
-            tgl_raw = item.get("TANGGAL")
-            sekolah_raw = item.get("SEKOLAH")
-            jumlah_raw = item.get("JUMLAH")
-            ket_raw = item.get("KETERANGAN")
+        for row in data:
+            tgl_raw = row.get("TANGGAL")
+            sekolah_raw = row.get("SEKOLAH")
+            jumlah_raw = row.get("JUMLAH")
+            ket_raw = row.get("KETERANGAN")
 
-            # Deteksi baris yang memiliki kolom TANGGAL terisi
+            # Jika ketemu tanggal baru
             if pd.notna(tgl_raw) and str(tgl_raw).strip() != "" and str(tgl_raw).upper() != "TANGGAL":
-                flush_current()
-                current_grup = []
-                current_jumlah = []
-                current_ket = []
-                
-                parsed_date = None
-                tgl_str = str(tgl_raw).upper()
-                
-                # Cari bulan dalam teks (misal: NOVEMBER, NOV)
-                b_num = None
-                for num, name in BULAN_INDO.items():
-                    if name.upper() in tgl_str or name[:3].upper() in tgl_str:
-                        b_num = num
-                        break
-                
-                if b_num:
-                    nums = re.findall(r'\d+', tgl_str)
-                    if nums:
-                        day_val = int(nums[0])
-                        # Cari tahun (angka 4 digit), jika tidak ada gunakan tahun sekarang (2026)
-                        year_val = 2026
-                        for n in nums[1:]:
-                            if len(n) == 4:
-                                year_val = int(n)
-                                break
-                        try:
-                            parsed_date = date(year_val, b_num, day_val)
-                        except Exception:
-                            pass
-                current_date = parsed_date
+                parsed_d = parse_indonesian_date(tgl_raw)
+                if parsed_d:
+                    simpan_grup_sebelumnya() # Simpan data tgl sebelumnya
+                    current_date = parsed_d
+                    current_grup, current_jumlah, current_ket = [], [], []
 
-            # Kumpulkan rincian baris di bawah tanggal tersebut
+            # Tambahkan baris ke tanggal yang sedang aktif
             if current_date:
-                if pd.notna(sekolah_raw) and str(sekolah_raw).strip() != "":
-                    current_grup.append(sekolah_raw)
-                if pd.notna(jumlah_raw) and str(jumlah_raw).strip() != "":
-                    current_jumlah.append(jumlah_raw)
-                if pd.notna(ket_raw) and str(ket_raw).strip() != "":
-                    current_ket.append(ket_raw)
+                if pd.notna(sekolah_raw) and str(sekolah_raw).strip():
+                    current_grup.append(f"👤 {str(sekolah_raw).strip()}")
+                if pd.notna(jumlah_raw) and str(jumlah_raw).strip():
+                    current_jumlah.append(str(jumlah_raw).strip())
+                if pd.notna(ket_raw) and str(ket_raw).strip():
+                    current_ket.append(str(ket_raw).strip())
 
-        flush_current()
+        simpan_grup_sebelumnya() # Simpan sisa data terakhir
         return parsed_events
     except Exception as e:
-        st.error(f"Gagal memuat data: {e}")
+        st.error(f"Gagal memuat: {e}")
         return []
 
-# Banner Header Utama
+# Banner
 st.markdown("""
 <div style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: white; padding: 15px 20px; border-radius: 12px; margin-bottom: 15px;">
-    <h1 style="color: white !important; font-size: 20px; font-weight: 700; margin: 0 0 3px 0;">📅 Kalender Jadwal Kunjungan Kolam</h1>
-    <p style="color: #e0f2fe; margin: 0; font-size: 12px;">Sentuh salah satu kotak tanggal pada kalender di bawah untuk melihat rincian jadwal.</p>
+    <h1 style="color: white !important; font-size: 20px; margin: 0 0 3px 0;">📅 Papan Informasi Jadwal Kunjungan</h1>
 </div>
 """, unsafe_allow_html=True)
 
-jadwal_data = load_and_parse_data()
+jadwal_data = load_data()
 
-# -------------------------------------------------------------
-# FILTER BULAN & TAHUN
-# -------------------------------------------------------------
-col_b1, col_b2 = st.columns(2)
-today_dt = date.today()
-
-with col_b1:
-    bln_pilihan = st.selectbox("Pilih Bulan:", list(BULAN_INDO.values()), index=today_dt.month - 1)
-with col_b2:
-    thn_pilihan = st.selectbox("Pilih Tahun:", range(2024, 2030), index=range(2024, 2030).index(today_dt.year))
-
+# Filter
+col1, col2 = st.columns(2)
+with col1: bln_pilihan = st.selectbox("Bulan", list(BULAN_INDO.values()), index=date.today().month - 1)
+with col2: thn_pilihan = st.selectbox("Tahun", range(2024, 2030), index=range(2024, 2030).index(date.today().year))
 bln_idx = list(BULAN_INDO.values()).index(bln_pilihan) + 1
 
-# -------------------------------------------------------------
-# PEMETAAN EVENT PER TANGGAL
-# -------------------------------------------------------------
-jml_hari_bulan = calendar.monthrange(thn_pilihan, bln_idx)[1]
-events_map = {date(thn_pilihan, bln_idx, d): [] for d in range(1, jml_hari_bulan + 1)}
-
+# Mapping ke kalender
+events_map = {date(thn_pilihan, bln_idx, d): [] for d in range(1, calendar.monthrange(thn_pilihan, bln_idx)[1] + 1)}
 for item in jadwal_data:
-    tgl_item = item.get("TANGGAL_DATE")
-    if tgl_item and isinstance(tgl_item, date):
-        if tgl_item.month == bln_idx and tgl_item.year == thn_pilihan:
-            if tgl_item in events_map:
-                events_map[tgl_item].append(item)
+    if item["TANGGAL_DATE"].month == bln_idx and item["TANGGAL_DATE"].year == thn_pilihan:
+        if item["TANGGAL_DATE"] in events_map:
+            events_map[item["TANGGAL_DATE"]].append(item)
 
-# -------------------------------------------------------------
-# RENDER KALENDER
-# -------------------------------------------------------------
-st.markdown(f"### 🗓️ Bulan {bln_pilihan} {thn_pilihan}")
-
+# Render HTML Kalender
 calendar.setfirstweekday(calendar.MONDAY)
-raw_weeks = calendar.monthcalendar(thn_pilihan, bln_idx)
-hari_names_singkat = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Mgg"]
-
 html_code = """<style>
-.custom-cal-container a { text-decoration: none !important; } 
-.cal-box { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 10px; padding: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); margin-bottom: 20px;} 
-.cal-grid-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 4px; } 
-.cal-th { text-align: center; font-weight: bold; font-size: 12px; padding: 4px 0; } 
-.cal-cell { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; min-height: 56px; padding: 4px 2px; text-align: center; display: flex; flex-direction: column; justify-content: space-between; transition: 0.2s ease; cursor: pointer;} 
-.cal-cell:hover { background-color: #f1f5f9; border-color: #0284c7; } 
-.cell-empty { background-color: transparent; border: 1px solid transparent; min-height: 56px; } 
-.cell-weekend { background-color: #fef2f2 !important; border-color: #f87171 !important; } 
-.cell-booked { background-color: #e0f2fe !important; border-color: #0284c7 !important; } 
-.cell-selected { border: 2px solid #0f172a !important; box-shadow: 0 0 0 2px #38bdf8; } 
-.c-num { font-size: 13px; font-weight: bold; color: #1e293b; } 
-.c-badge { font-size: 9px; padding: 2px 0; border-radius: 3px; font-weight: bold; display: block; text-align: center; margin-top: 4px;} 
-.badge-weekend { background-color: #dc2626; color: white; } 
-.badge-booked { background-color: #0284c7; color: white; } 
-.badge-empty { background-color: #e2e8f0; color: #64748b; }
-</style>"""
+.cal-container { background: white; border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px; }
+.cal-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-bottom: 5px; }
+.cal-th { text-align: center; font-weight: bold; font-size: 13px; }
+.cal-cell { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 5px; height: 65px; text-decoration: none; display: flex; flex-direction: column; cursor: pointer; color: black; }
+.cal-cell:hover { border-color: #0284c7; }
+.cell-booked { background: #e0f2fe; border-color: #0284c7; }
+.cell-selected { border: 2px solid #0f172a; }
+.badge-booked { background: #0284c7; color: white; font-size: 10px; padding: 2px; text-align: center; border-radius: 3px; margin-top: auto; }
+</style><div class='cal-container'><div class='cal-row'>"""
 
-html_code += "<div class='custom-cal-container'><div class='cal-box'><div class='cal-grid-row'>"
-
-for i, h_name in enumerate(hari_names_singkat):
-    c_color = "#dc2626" if i in [5, 6] else "#334155"
-    html_code += f"<div class='cal-th' style='color: {c_color};'>{h_name}</div>"
+for h in ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Mgg"]: html_code += f"<div class='cal-th'>{h}</div>"
 html_code += "</div>"
 
-for week in raw_weeks:
-    html_code += "<div class='cal-grid-row'>"
-    for idx_col, day in enumerate(week):
+for week in calendar.monthcalendar(thn_pilihan, bln_idx):
+    html_code += "<div class='cal-row'>"
+    for day in week:
         if day == 0:
-            html_code += "<div class='cell-empty'></div>"
+            html_code += "<div></div>"
         else:
-            curr_date = date(thn_pilihan, bln_idx, day)
-            jml_ev = len(events_map[curr_date])
-            is_weekend = (idx_col in [5, 6])
-
-            extra_cls = ""
-            badge_cls = "badge-empty"
-            badge_txt = "Kosong"
-
-            if jml_ev > 0:
-                badge_txt = f"{jml_ev} Agenda"
-                if is_weekend:
-                    extra_cls += " cell-weekend"
-                    badge_cls = "badge-weekend"
-                else:
-                    extra_cls += " cell-booked"
-                    badge_cls = "badge-booked"
-            else:
-                if is_weekend:
-                    extra_cls += " cell-weekend"
-                    badge_cls = "badge-weekend"
-
-            if curr_date == st.session_state.selected_date:
-                extra_cls += " cell-selected"
-
-            html_code += f"<a href='#' id='{curr_date.isoformat()}' class='cal-cell{extra_cls}'><div class='c-num'>{day}</div><span class='c-badge {badge_cls}'>{badge_txt}</span></a>"
-
+            c_date = date(thn_pilihan, bln_idx, day)
+            jml_ev = len(events_map[c_date])
+            
+            cls = "cal-cell"
+            if jml_ev > 0: cls += " cell-booked"
+            if c_date == st.session_state.selected_date: cls += " cell-selected"
+            
+            badge = f"<div class='badge-booked'>{jml_ev} Booking</div>" if jml_ev > 0 else ""
+            html_code += f"<a href='#' id='{c_date}' class='{cls}'><b>{day}</b>{badge}</a>"
     html_code += "</div>"
-html_code += "</div></div>"
+html_code += "</div>"
 
-clicked_date = click_detector(html_code, key="cal_detector")
-
+clicked_date = click_detector(html_code)
 if clicked_date:
-    parsed_tgl = date.fromisoformat(clicked_date)
-    if st.session_state.selected_date != parsed_tgl:
-        st.session_state.selected_date = parsed_tgl
-        st.rerun()
+    st.session_state.selected_date = date.fromisoformat(clicked_date)
+    st.rerun()
 
-# -------------------------------------------------------------
-# BUBBLE POP-UP RINCIAN JADWAL TANGGAL TERPILIH
-# -------------------------------------------------------------
+# Menampilkan Detail Bubble
 sel_date = st.session_state.selected_date
-sel_hari_nama = HARI_INDO[sel_date.weekday()]
-sel_bln_nama = BULAN_INDO[sel_date.month]
-tgl_format_panjang = f"{sel_hari_nama}, {sel_date.day} {sel_bln_nama} {sel_date.year}"
+st.markdown(f"#### 💬 Detail Kunjungan: {HARI_INDO[sel_date.weekday()]}, {sel_date.day} {BULAN_INDO[sel_date.month]} {sel_date.year}")
 
-st.markdown(f"#### 💬 Detail Kunjungan: <span style='color: #0284c7;'>{tgl_format_panjang}</span>", unsafe_allow_html=True)
-
-events_selected = [item for item in jadwal_data if item.get("TANGGAL_DATE") == sel_date]
-
-detail_html = """<style>
-.bubble-container { background: #ffffff; border: 2px solid #0284c7; border-radius: 12px; padding: 18px; box-shadow: 0 4px 15px rgba(2, 132, 199, 0.15); margin-top: 5px; }
-.event-item { background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #0284c7; padding: 10px 14px; margin-top: 10px; border-radius: 6px; }
-.empty-bubble { background-color: #f1f5f9; border: 2px dashed #cbd5e1; padding: 15px; text-align: center; border-radius: 8px; color: #64748b; font-size: 13px; }
-</style>
-<div class="bubble-container">"""
+events_selected = events_map.get(sel_date, [])
+detail_html = "<div style='background: white; border: 2px solid #0284c7; border-radius: 12px; padding: 15px;'>"
 
 if events_selected:
-    detail_html += f"<p style='color: #0369a1; font-weight: bold; margin-bottom: 8px;'>Ditemukan {len(events_selected)} jadwal pada tanggal ini:</p>"
     for ev in events_selected:
-        sekolah = ev.get("SEKOLAH", "-")
-        jumlah = ev.get("JUMLAH", "-")
-        ket = ev.get("KETERANGAN", "-")
-
         detail_html += f"""
-<div class="event-item">
-<div style="font-size: 15px; font-weight: bold; color: #0284c7; margin-bottom: 3px;">🏛️ {sekolah}</div>
-<div style="font-size: 12px; color: #475569;">👥 <b>Jumlah/Tiket:</b> {jumlah}</div>
-<div style="font-size: 11px; color: #64748b; font-style: italic; margin-top: 3px;">📝 <b>Keterangan:</b> {ket}</div>
-</div>"""
+        <div style='background: #f8fafc; border-left: 4px solid #0284c7; padding: 10px; margin-bottom: 10px; border-radius: 5px;'>
+            <div style='font-size: 14px; font-weight: bold; color: #0284c7;'>{ev['SEKOLAH']}</div>
+            <div style='font-size: 12px; margin-top:5px;'>👥 <b>Rincian Tiket:</b><br>{ev['JUMLAH']}</div>
+            <div style='font-size: 12px; margin-top:5px; color: #d97706;'>📝 <b>Catatan:</b><br>{ev['KETERANGAN']}</div>
+        </div>"""
 else:
-    detail_html += """
-<div class="empty-bubble">
-<div style="font-size: 20px; margin-bottom: 3px;">🏖️</div>
-<b>Status: KOSONG</b><br>
-Belum ada jadwal rombongan atau bookingan pada tanggal ini.
-</div>"""
+    detail_html += "<div style='text-align: center; color: #64748b;'>🏖️ Kosong. Belum ada jadwal.</div>"
 
 detail_html += "</div>"
 st.markdown(detail_html, unsafe_allow_html=True)
