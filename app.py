@@ -7,14 +7,10 @@ from streamlit_gsheets import GSheetsConnection
 from st_click_detector import click_detector
 from streamlit_autorefresh import st_autorefresh
 
-# -------------------------------------------------------------
-# LINK SPREADSHEET (Pastikan Sheet tersebut sudah berformat Google Sheets)
-# -------------------------------------------------------------
 SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/14XyLKqesumeBBDhPGlko5Iea3a0PG4nyJw-m_eS_BCY/edit" 
 
 st.set_page_config(page_title="Jadwal Kolam", page_icon="📅", layout="wide")
 st_autorefresh(interval=900000, limit=None, key="papan_refresh")
-
 st.markdown("""<style>[data-testid="stSidebar"] {display: none;}</style>""", unsafe_allow_html=True)
 
 if 'selected_date' not in st.session_state:
@@ -28,7 +24,7 @@ BULAN_INDO = {
 }
 HARI_INDO = {0: "Senin", 1: "Selasa", 2: "Rabu", 3: "Kamis", 4: "Jumat", 5: "Sabtu", 6: "Minggu"}
 
-def parse_indonesian_date(tgl_str):
+def parse_indonesian_date(tgl_str, thn_default):
     tgl_str = str(tgl_str).upper().strip()
     b_num = None
     for num, name in BULAN_INDO.items():
@@ -40,7 +36,7 @@ def parse_indonesian_date(tgl_str):
         nums = re.findall(r'\d+', tgl_str)
         if nums:
             day_val = int(nums[0])
-            year_val = date.today().year # Default ke tahun saat ini
+            year_val = thn_default 
             for n in nums[1:]:
                 if len(n) == 4:
                     year_val = int(n)
@@ -51,13 +47,16 @@ def parse_indonesian_date(tgl_str):
                 pass
     return None
 
-def load_data():
+# ==============================================================
+# CACHE DATA PER TAHUN SHEET
+# ==============================================================
+@st.cache_data(ttl=600)
+def load_data(tahun_sheet):
     try:
-        # Membaca sheet DETAIL
-        df_raw = conn.read(spreadsheet=SPREADSHEET_URL, worksheet="DETAIL", ttl=0)
+        # Membaca data dari Sheet bernama Tahun (Contoh: "2026")
+        df_raw = conn.read(spreadsheet=SPREADSHEET_URL, worksheet=str(tahun_sheet), ttl=600)
         if df_raw.empty: return []
 
-        # PENCARIAN HEADER DINAMIS (Agar tidak tertipu oleh baris judul Excel)
         header_idx = None
         for i in range(min(15, len(df_raw))):
             row_str = " ".join([str(x).upper() for x in df_raw.iloc[i].values])
@@ -66,11 +65,9 @@ def load_data():
                 break
         
         if header_idx is not None:
-            # Jadikan baris tersebut sebagai nama kolom asli
             df_raw.columns = [str(c).upper().strip() for c in df_raw.iloc[header_idx].values]
             df = df_raw.iloc[header_idx + 1:].reset_index(drop=True)
         else:
-            # Fallback manual jika gagal mencari
             df = df_raw
             if len(df.columns) >= 6:
                 df.columns = ["A", "NO", "TANGGAL", "SEKOLAH", "JUMLAH", "KETERANGAN"] + list(df.columns[6:])
@@ -95,15 +92,13 @@ def load_data():
             jumlah_raw = row.get("JUMLAH")
             ket_raw = row.get("KETERANGAN")
 
-            # Deteksi Baris Tanggal Baru
             if pd.notna(tgl_raw) and str(tgl_raw).strip() != "" and str(tgl_raw).upper() != "TANGGAL":
-                parsed_d = parse_indonesian_date(tgl_raw)
+                parsed_d = parse_indonesian_date(tgl_raw, int(tahun_sheet))
                 if parsed_d:
                     simpan_grup_sebelumnya()
                     current_date = parsed_d
                     current_grup, current_jumlah, current_ket = [], [], []
 
-            # Tambahkan Rincian Grup/Sekolah ke Tanggal yang Sedang Aktif
             if current_date:
                 if pd.notna(sekolah_raw) and str(sekolah_raw).strip():
                     current_grup.append(f"👤 {str(sekolah_raw).strip()}")
@@ -115,7 +110,7 @@ def load_data():
         simpan_grup_sebelumnya()
         return parsed_events
     except Exception as e:
-        st.error(f"Gagal memuat: {e}")
+        st.warning(f"Tidak dapat membaca data untuk Tahun {tahun_sheet}. Pastikan nama Sheet di Google Sheets sudah dibuat (misal: '{tahun_sheet}').")
         return []
 
 # Banner
@@ -125,15 +120,16 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-jadwal_data = load_data()
-
-# Filter Bulan Tahun
+# FILTER BULAN & TAHUN DIPINDAH KE ATAS
 col1, col2 = st.columns(2)
 with col1: bln_pilihan = st.selectbox("Bulan", list(BULAN_INDO.values()), index=date.today().month - 1)
 with col2: thn_pilihan = st.selectbox("Tahun", range(2024, 2030), index=range(2024, 2030).index(date.today().year))
 bln_idx = list(BULAN_INDO.values()).index(bln_pilihan) + 1
 
-# Mapping Event ke Kalender
+# LOAD DATA BERDASARKAN TAHUN YANG DIPILIH
+jadwal_data = load_data(thn_pilihan)
+
+# Mapping Event
 events_map = {date(thn_pilihan, bln_idx, d): [] for d in range(1, calendar.monthrange(thn_pilihan, bln_idx)[1] + 1)}
 for item in jadwal_data:
     if item["TANGGAL_DATE"].month == bln_idx and item["TANGGAL_DATE"].year == thn_pilihan:
@@ -179,7 +175,7 @@ if clicked_date:
     st.session_state.selected_date = date.fromisoformat(clicked_date)
     st.rerun()
 
-# Menampilkan Detail Bubble di bawah Kalender
+# Detail
 sel_date = st.session_state.selected_date
 st.markdown(f"#### 💬 Detail Kunjungan: {HARI_INDO[sel_date.weekday()]}, {sel_date.day} {BULAN_INDO[sel_date.month]} {sel_date.year}")
 
@@ -195,7 +191,7 @@ if events_selected:
             <div style='font-size: 12px; margin-top:5px; color: #d97706;'>📝 <b>Catatan:</b><br>{ev['KETERANGAN']}</div>
         </div>"""
 else:
-    detail_html += "<div style='text-align: center; color: #64748b;'>🏖️ Kosong. Belum ada jadwal.</div>"
+    detail_html += "<div style='text-align: center; color: #64748b;'>🏖️ Kosong. Belum ada jadwal pada tanggal ini.</div>"
 
 detail_html += "</div>"
 st.markdown(detail_html, unsafe_allow_html=True)
