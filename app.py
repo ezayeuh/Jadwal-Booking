@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import calendar
-from datetime import datetime, date
+from datetime import date
 from streamlit_gsheets import GSheetsConnection
 from st_click_detector import click_detector
 from streamlit_autorefresh import st_autorefresh
@@ -12,12 +12,12 @@ from streamlit_autorefresh import st_autorefresh
 SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1XsYvF0pcBYjRm-h_oPf2jag3OwUFLK43bhRoyE-yh-M/edit"
 
 st.set_page_config(
-    page_title="Papan Informasi Jadwal Kunjungan",
+    page_title="Papan Informasi Jadwal Kunjungan Kolam",
     page_icon="📅",
     layout="wide"
 )
 
-# Refresh otomatis setiap 15 menit (900.000 ms) agar layar tidak sleep dan data ter-update
+# Refresh otomatis setiap 15 menit agar layar tidak sleep
 st_autorefresh(interval=900000, limit=None, key="papan_refresh")
 
 # Sembunyikan Sidebar / Navigasi Halaman di Dashboard Pengunjung
@@ -29,7 +29,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Inisialisasi State Tanggal
 if 'selected_date' not in st.session_state:
     st.session_state.selected_date = date.today()
 
@@ -49,24 +48,16 @@ def load_data():
 
         data = df.to_dict(orient="records")
         for item in data:
-            tgl_raw = item.get("TANGGAL_DATE")
+            tgl_raw = item.get("TANGGAL")
             if pd.notna(tgl_raw) and tgl_raw:
                 try:
+                    # Parsing tanggal teks dari format Excel
                     parsed_date = date.fromisoformat(str(tgl_raw).split(" ")[0])
                     item["TANGGAL_DATE"] = parsed_date
                 except Exception:
                     item["TANGGAL_DATE"] = None
             else:
                 item["TANGGAL_DATE"] = None
-
-            hr_raw = item.get("HARI_RUTIN")
-            if isinstance(hr_raw, str):
-                try:
-                    item["HARI_RUTIN"] = eval(hr_raw)
-                except Exception:
-                    item["HARI_RUTIN"] = [hr_raw] if hr_raw else []
-            elif not isinstance(hr_raw, list):
-                item["HARI_RUTIN"] = []
 
         return data
     except Exception as e:
@@ -103,28 +94,18 @@ jml_hari_bulan = calendar.monthrange(thn_pilihan, bln_idx)[1]
 events_map = {date(thn_pilihan, bln_idx, d): [] for d in range(1, jml_hari_bulan + 1)}
 
 for item in jadwal_data:
-    tipe_str = str(item.get("TIPE", "")).lower()
     tgl_item = item.get("TANGGAL_DATE")
-
-    if tipe_str == "hari rutin / berulang" or item.get("HARI_RUTIN"):
-        rutin_list = item.get("HARI_RUTIN", [])
-        if isinstance(rutin_list, list):
-            for d in events_map.keys():
-                hari_nama = HARI_INDO[d.weekday()]
-                if hari_nama in rutin_list:
-                    events_map[d].append(item)
-
-    elif tgl_item and isinstance(tgl_item, date):
+    if tgl_item and isinstance(tgl_item, date):
         if tgl_item.month == bln_idx and tgl_item.year == thn_pilihan:
             if tgl_item in events_map:
                 events_map[tgl_item].append(item)
 
 # -------------------------------------------------------------
-# RENDER KALENDER (Menggunakan Click Detector)
+# RENDER KALENDER
 # -------------------------------------------------------------
 st.markdown(f"### 🗓️ Bulan {bln_pilihan} {thn_pilihan}")
 
-calendar.setfirstweekday(calendar.MONDAY) # Mulai dari Hari Senin
+calendar.setfirstweekday(calendar.MONDAY)
 raw_weeks = calendar.monthcalendar(thn_pilihan, bln_idx)
 hari_names_singkat = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Mgg"]
 
@@ -149,7 +130,7 @@ html_code = """<style>
 html_code += "<div class='custom-cal-container'><div class='cal-box'><div class='cal-grid-row'>"
 
 for i, h_name in enumerate(hari_names_singkat):
-    c_color = "#dc2626" if i in [5, 6] else "#334155" # Merah untuk Sabtu & Minggu
+    c_color = "#dc2626" if i in [5, 6] else "#334155"
     html_code += f"<div class='cal-th' style='color: {c_color};'>{h_name}</div>"
 html_code += "</div>"
 
@@ -161,7 +142,7 @@ for week in raw_weeks:
         else:
             curr_date = date(thn_pilihan, bln_idx, day)
             jml_ev = len(events_map[curr_date])
-            is_weekend = (idx_col in [5, 6]) # 5 = Sabtu, 6 = Minggu
+            is_weekend = (idx_col in [5, 6])
 
             extra_cls = ""
             badge_cls = "badge-empty"
@@ -188,7 +169,6 @@ for week in raw_weeks:
     html_code += "</div>"
 html_code += "</div></div>"
 
-# Eksekusi penangkap klik
 clicked_date = click_detector(html_code, key="cal_detector")
 
 if clicked_date:
@@ -207,18 +187,8 @@ tgl_format_panjang = f"{sel_hari_nama}, {sel_date.day} {sel_bln_nama} {sel_date.
 
 st.markdown(f"#### 💬 Detail Kunjungan: <span style='color: #0284c7;'>{tgl_format_panjang}</span>", unsafe_allow_html=True)
 
-events_selected = []
-for item in jadwal_data:
-    tipe_str = str(item.get("TIPE", "")).lower()
+events_selected = [item for item in jadwal_data if item.get("TANGGAL_DATE") == sel_date]
 
-    if item.get("TANGGAL_DATE") == sel_date:
-        events_selected.append(item)
-    elif tipe_str == "hari rutin / berulang" or item.get("HARI_RUTIN"):
-        rutin_list = item.get("HARI_RUTIN", [])
-        if isinstance(rutin_list, list) and sel_hari_nama in rutin_list:
-            events_selected.append(item)
-
-# HTML rincian
 detail_html = """<style>
 .bubble-container { background: #ffffff; border: 2px solid #0284c7; border-radius: 12px; padding: 18px; box-shadow: 0 4px 15px rgba(2, 132, 199, 0.15); margin-top: 5px; }
 .event-item { background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #0284c7; padding: 10px 14px; margin-top: 10px; border-radius: 6px; }
@@ -227,27 +197,17 @@ detail_html = """<style>
 <div class="bubble-container">"""
 
 if events_selected:
-    detail_html += f"<p style='color: #0369a1; font-weight: bold; margin-bottom: 8px;'>Ditemukan {len(events_selected)} jadwal / kegiatan pada tanggal ini:</p>"
+    detail_html += f"<p style='color: #0369a1; font-weight: bold; margin-bottom: 8px;'>Ditemukan {len(events_selected)} jadwal pada tanggal ini:</p>"
     for ev in events_selected:
         sekolah = ev.get("SEKOLAH", "-")
-        pic = ev.get("PIC", "-")
+        jumlah = ev.get("JUMLAH", "-")
         ket = ev.get("KETERANGAN", "-")
-        kategori = ev.get("KATEGORI", "Sekolah")
-
-        jumlah_raw = ev.get("JUMLAH")
-        jumlah = str(jumlah_raw) if pd.notna(jumlah_raw) and jumlah_raw else "-"
-        if jumlah.endswith(".0"):
-            jumlah = jumlah.replace(".0", "")
-
-        warna_badge = "#16a34a" if kategori.lower() == "kegiatan rutin" else "#0284c7"
 
         detail_html += f"""
 <div class="event-item">
-<div style="float: right; background-color: {warna_badge}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: bold;">{kategori}</div>
 <div style="font-size: 15px; font-weight: bold; color: #0284c7; margin-bottom: 3px;">{sekolah}</div>
-<div style="font-size: 12px; color: #475569;">👤 <b>PIC/Kontak:</b> {pic}</div>
-<div style="font-size: 12px; color: #475569;">👥 <b>Jumlah:</b> {jumlah} Orang</div>
-<div style="font-size: 11px; color: #64748b; font-style: italic; margin-top: 3px;">📝 Catatan: {ket}</div>
+<div style="font-size: 12px; color: #475569;">👥 <b>Jumlah/Tiket:</b> {jumlah}</div>
+<div style="font-size: 11px; color: #64748b; font-style: italic; margin-top: 3px;">📝 <b>Keterangan:</b> {ket}</div>
 </div>"""
 else:
     detail_html += """
@@ -258,5 +218,4 @@ Belum ada jadwal rombongan atau bookingan pada tanggal ini.
 </div>"""
 
 detail_html += "</div>"
-
 st.markdown(detail_html, unsafe_allow_html=True)
