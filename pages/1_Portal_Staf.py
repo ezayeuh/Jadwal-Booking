@@ -3,7 +3,7 @@ import pandas as pd
 from datetime import date
 from streamlit_gsheets import GSheetsConnection
 
-SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/14XyLKqesumeBBDhPGlko5Iea3a0PG4nyJw-m_eS_BCY"
+SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/14XyLKqesumeBBDhPGlko5Iea3a0PG4nyJw-m_eS_BCY/edit"
 
 st.set_page_config(
     page_title="Portal Staff - Jadwal Kunjungan",
@@ -14,7 +14,6 @@ st.set_page_config(
 st.title("🔐 Portal Staff / Admin - Pengelolaan Jadwal Kunjungan")
 st.write("Kelola data booking kolam sesuai format tabel master Excel (NO, TANGGAL, SEKOLAH, JUMLAH, KETERANGAN).")
 
-# Autentikasi Sederhana Staff
 PASSWORD_STAFF = "admin123"  # Ubah sesuai keinginan
 input_password = st.text_input("Masukkan Password Staff:", type="password")
 
@@ -27,7 +26,7 @@ st.success("✅ Login Staff Berhasil!")
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 try:
-    df = conn.read(spreadsheet=SPREADSHEET_URL, ttl=0)
+    df = conn.read(spreadsheet=SPREADSHEET_URL, worksheet="DETAIL", ttl=0)
 except Exception as e:
     st.error(f"Gagal memuat data: {e}")
     df = pd.DataFrame()
@@ -78,7 +77,7 @@ with st.form("form_tambah_staff"):
             updated_df = pd.concat([df, new_row], ignore_index=True)
             
             try:
-                conn.update(spreadsheet=SPREADSHEET_URL, data=updated_df)
+                conn.update(spreadsheet=SPREADSHEET_URL, worksheet="DETAIL", data=updated_df)
                 st.success("🎉 Data berhasil ditambahkan dan disinkronkan ke Google Sheets!")
                 st.rerun()
             except Exception as e:
