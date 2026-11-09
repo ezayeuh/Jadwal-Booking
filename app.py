@@ -9,7 +9,7 @@ from streamlit_autorefresh import st_autorefresh
 # -------------------------------------------------------------
 # KONFIGURASI SPREADSHEET & HALAMAN
 # -------------------------------------------------------------
-SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1XsYvF0pcBYjRm-h_oPf2jag3OwUFLK43bhRoyE-yh-M/edit"
+SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1ajqbXbTib53Rr5hFGGuoY8envfUtkFpB/edit?gid=1469221539#gid=1469221539"
 
 st.set_page_config(
     page_title="Papan Informasi Jadwal Kunjungan Kolam",
@@ -40,28 +40,72 @@ BULAN_INDO = {
     7: "Juli", 8: "Agustus", 9: "September", 10: "Oktober", 11: "November", 12: "Desember"
 }
 
-def load_data():
+def load_and_parse_data():
     try:
         df = conn.read(spreadsheet=SPREADSHEET_URL, ttl=0)
         if df is None or df.empty:
             return []
 
         data = df.to_dict(orient="records")
+        parsed_events = []
+        current_date = None
+        
+        current_grup = []
+        current_jumlah = []
+        current_ket = []
+
+        def flush_current():
+            if current_date and current_grup:
+                parsed_events.append({
+                    "TANGGAL_DATE": current_date,
+                    "SEKOLAH": " | ".join([str(x) for x in current_grup if pd.notna(x)]),
+                    "JUMLAH": " | ".join([str(x) for x in current_jumlah if pd.notna(x)]) if current_jumlah else "-",
+                    "KETERANGAN": " | ".join([str(x) for x in current_ket if pd.notna(x)]) if current_ket else "-"
+                })
+
         for item in data:
             tgl_raw = item.get("TANGGAL")
-            if pd.notna(tgl_raw) and tgl_raw:
-                try:
-                    # Parsing tanggal teks dari format Excel
-                    parsed_date = date.fromisoformat(str(tgl_raw).split(" ")[0])
-                    item["TANGGAL_DATE"] = parsed_date
-                except Exception:
-                    item["TANGGAL_DATE"] = None
-            else:
-                item["TANGGAL_DATE"] = None
+            sekolah_raw = item.get("SEKOLAH")
+            jumlah_raw = item.get("JUMLAH")
+            ket_raw = item.get("KETERANGAN")
 
-        return data
+            # Deteksi jika baris memiliki tanggal baru
+            if pd.notna(tgl_raw) and str(tgl_raw).strip() != "" and str(tgl_raw).upper() != "TANGGAL":
+                flush_current()
+                current_grup = []
+                current_jumlah = []
+                current_ket = []
+                
+                parsed_date = None
+                tgl_str = str(tgl_raw).upper()
+                try:
+                    parsed_date = date.fromisoformat(tgl_str.split(" ")[0])
+                except Exception:
+                    for b_num, b_name in BULAN_INDO.items():
+                        if b_name[:3].upper() in tgl_str or b_name.upper() in tgl_str:
+                            import re
+                            nums = re.findall(r'\d+', tgl_str)
+                            if len(nums) >= 2:
+                                day_val = int(nums[0])
+                                year_val = int(nums[1]) if len(nums[1]) == 4 else 2025
+                                try:
+                                    parsed_date = date(year_val, b_num, day_val)
+                                except Exception:
+                                    pass
+                current_date = parsed_date
+
+            if current_date:
+                if pd.notna(sekolah_raw) and str(sekolah_raw).strip() != "":
+                    current_grup.append(sekolah_raw)
+                if pd.notna(jumlah_raw) and str(jumlah_raw).strip() != "":
+                    current_jumlah.append(jumlah_raw)
+                if pd.notna(ket_raw) and str(ket_raw).strip() != "":
+                    current_ket.append(ket_raw)
+
+        flush_current()
+        return parsed_events
     except Exception as e:
-        st.error(f"Gagal memuat data dari Google Sheets: {e}")
+        st.error(f"Gagal memuat data: {e}")
         return []
 
 # Banner Header Utama
@@ -72,7 +116,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-jadwal_data = load_data()
+jadwal_data = load_and_parse_data()
 
 # -------------------------------------------------------------
 # FILTER BULAN & TAHUN
@@ -88,7 +132,7 @@ with col_b2:
 bln_idx = list(BULAN_INDO.values()).index(bln_pilihan) + 1
 
 # -------------------------------------------------------------
-# PEMETAAN DATA EVENT PER TANGGAL
+# PEMETAAN EVENT PER TANGGAL
 # -------------------------------------------------------------
 jml_hari_bulan = calendar.monthrange(thn_pilihan, bln_idx)[1]
 events_map = {date(thn_pilihan, bln_idx, d): [] for d in range(1, jml_hari_bulan + 1)}
@@ -205,7 +249,7 @@ if events_selected:
 
         detail_html += f"""
 <div class="event-item">
-<div style="font-size: 15px; font-weight: bold; color: #0284c7; margin-bottom: 3px;">{sekolah}</div>
+<div style="font-size: 15px; font-weight: bold; color: #0284c7; margin-bottom: 3px;">🏛️ {sekolah}</div>
 <div style="font-size: 12px; color: #475569;">👥 <b>Jumlah/Tiket:</b> {jumlah}</div>
 <div style="font-size: 11px; color: #64748b; font-style: italic; margin-top: 3px;">📝 <b>Keterangan:</b> {ket}</div>
 </div>"""
