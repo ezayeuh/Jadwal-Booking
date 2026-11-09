@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import calendar
+import re
 from datetime import date
 from streamlit_gsheets import GSheetsConnection
 from st_click_detector import click_detector
@@ -9,7 +10,7 @@ from streamlit_autorefresh import st_autorefresh
 # -------------------------------------------------------------
 # KONFIGURASI SPREADSHEET & HALAMAN
 # -------------------------------------------------------------
-SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/14XyLKqesumeBBDhPGlko5Iea3a0PG4nyJw-m_eS_BCY"
+SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/14XyLKqesumeBBDhPGlko5Iea3a0PG4nyJw-m_eS_BCY/edit"
 
 st.set_page_config(
     page_title="Papan Informasi Jadwal Kunjungan Kolam",
@@ -42,7 +43,8 @@ BULAN_INDO = {
 
 def load_and_parse_data():
     try:
-        df = conn.read(spreadsheet=SPREADSHEET_URL, ttl=0)
+        # Membaca sheet bernama 'DETAIL' sesuai file Excel Anda
+        df = conn.read(spreadsheet=SPREADSHEET_URL, worksheet="DETAIL", ttl=0)
         if df is None or df.empty:
             return []
 
@@ -58,9 +60,9 @@ def load_and_parse_data():
             if current_date and current_grup:
                 parsed_events.append({
                     "TANGGAL_DATE": current_date,
-                    "SEKOLAH": " | ".join([str(x) for x in current_grup if pd.notna(x)]),
-                    "JUMLAH": " | ".join([str(x) for x in current_jumlah if pd.notna(x)]) if current_jumlah else "-",
-                    "KETERANGAN": " | ".join([str(x) for x in current_ket if pd.notna(x)]) if current_ket else "-"
+                    "SEKOLAH": " | ".join([str(x) for x in current_grup if pd.notna(x) and str(x).strip() != ""]),
+                    "JUMLAH": " | ".join([str(x) for x in current_jumlah if pd.notna(x) and str(x).strip() != ""]) if current_jumlah else "-",
+                    "KETERANGAN": " | ".join([str(x) for x in current_ket if pd.notna(x) and str(x).strip() != ""]) if current_ket else "-"
                 })
 
         for item in data:
@@ -69,7 +71,7 @@ def load_and_parse_data():
             jumlah_raw = item.get("JUMLAH")
             ket_raw = item.get("KETERANGAN")
 
-            # Deteksi baris yang memiliki tanggal baru
+            # Deteksi baris yang memiliki kolom TANGGAL terisi
             if pd.notna(tgl_raw) and str(tgl_raw).strip() != "" and str(tgl_raw).upper() != "TANGGAL":
                 flush_current()
                 current_grup = []
@@ -78,22 +80,31 @@ def load_and_parse_data():
                 
                 parsed_date = None
                 tgl_str = str(tgl_raw).upper()
-                try:
-                    parsed_date = date.fromisoformat(tgl_str.split(" ")[0])
-                except Exception:
-                    for b_num, b_name in BULAN_INDO.items():
-                        if b_name[:3].upper() in tgl_str or b_name.upper() in tgl_str:
-                            import re
-                            nums = re.findall(r'\d+', tgl_str)
-                            if len(nums) >= 2:
-                                day_val = int(nums[0])
-                                year_val = int(nums[1]) if len(nums[1]) == 4 else 2025
-                                try:
-                                    parsed_date = date(year_val, b_num, day_val)
-                                except Exception:
-                                    pass
+                
+                # Cari bulan dalam teks (misal: NOVEMBER, NOV)
+                b_num = None
+                for num, name in BULAN_INDO.items():
+                    if name.upper() in tgl_str or name[:3].upper() in tgl_str:
+                        b_num = num
+                        break
+                
+                if b_num:
+                    nums = re.findall(r'\d+', tgl_str)
+                    if nums:
+                        day_val = int(nums[0])
+                        # Cari tahun (angka 4 digit), jika tidak ada gunakan tahun sekarang (2026)
+                        year_val = 2026
+                        for n in nums[1:]:
+                            if len(n) == 4:
+                                year_val = int(n)
+                                break
+                        try:
+                            parsed_date = date(year_val, b_num, day_val)
+                        except Exception:
+                            pass
                 current_date = parsed_date
 
+            # Kumpulkan rincian baris di bawah tanggal tersebut
             if current_date:
                 if pd.notna(sekolah_raw) and str(sekolah_raw).strip() != "":
                     current_grup.append(sekolah_raw)
