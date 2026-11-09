@@ -9,7 +9,7 @@ from streamlit_autorefresh import st_autorefresh
 # -------------------------------------------------------------
 # KONFIGURASI SPREADSHEET & HALAMAN
 # -------------------------------------------------------------
-SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/14XyLKqesumeBBDhPGlko5Iea3a0PG4nyJw-m_eS_BCY/edit?gid=1469221539#gid=1469221539"
+SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/14XyLKqesumeBBDhPGlko5Iea3a0PG4nyJw-m_eS_BCY"
 
 st.set_page_config(
     page_title="Papan Informasi Jadwal Kunjungan Kolam",
