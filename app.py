@@ -3,7 +3,7 @@ import pandas as pd
 import calendar
 import re
 from datetime import date
-from streamlit_gsheets import GSheetsConnection
+import gspread
 from st_click_detector import click_detector
 from streamlit_autorefresh import st_autorefresh
 
@@ -16,8 +16,6 @@ st.markdown("""<style>[data-testid="stSidebar"] {display: none;}</style>""", uns
 if 'selected_date' not in st.session_state:
     st.session_state.selected_date = date.today()
 
-conn = st.connection("gsheets", type=GSheetsConnection)
-
 BULAN_INDO = {
     1: "Januari", 2: "Februari", 3: "Maret", 4: "April", 5: "Mei", 6: "Juni",
     7: "Juli", 8: "Agustus", 9: "September", 10: "Oktober", 11: "November", 12: "Desember"
@@ -28,8 +26,6 @@ HARI_LIST = ["SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU", "MINGGU"]
 def parse_indonesian_date_range(tgl_str, thn_default, bln_default):
     tgl_str = str(tgl_str).upper().strip()
     b_num = None
-    
-    # Deteksi nama bulan utuh atau 3 huruf pertama (misal: NOV, OKT, DES)
     for num, name in BULAN_INDO.items():
         if name.upper() in tgl_str or name[:3].upper() in tgl_str:
             b_num = num
@@ -67,23 +63,33 @@ def parse_indonesian_date_range(tgl_str, thn_default, bln_default):
             
     return []
 
+# Menggunakan gspread agar konsisten dengan admin dan dijamin membaca sheet 2025/2026 tanpa gagal
 @st.cache_data(ttl=5)
 def load_data(tahun_sheet, bulan_terpilih):
     try:
-        # Membaca sheet sesuai tahun yang dipilih pengunjung (misal "2025" atau "2026")
-        df_raw = conn.read(spreadsheet=SPREADSHEET_URL, worksheet=str(tahun_sheet), ttl=0)
-        if df_raw.empty: return []
+        kredensial = dict(st.secrets["connections"]["gsheets"])
+        gc = gspread.service_account_from_dict(kredensial)
+        sh = gc.open_by_url(SPREADSHEET_URL)
+        ws = sh.worksheet(str(tahun_sheet))
+        data = ws.get_all_records(expected_headers=[])
+        
+        if not data:
+            # Alternatif jika get_all_records kosong, gunakan get_all_values
+            rows = ws.get_all_values()
+            if not rows: return []
+            header = rows[3] if len(rows) > 3 else rows[0]
+            data = [dict(zip(header, row)) for row in rows[4:]]
 
-        data = df_raw.to_dict(orient="records")
         parsed_events = []
         active_dates = []
 
         for row in data:
-            keys = list(row.keys())
-            tgl_raw = row.get(keys[1]) if len(keys) > 1 else None  # Kolom B
-            sekolah_raw = row.get(keys[2]) if len(keys) > 2 else None  # Kolom C
-            jumlah_raw = row.get(keys[3]) if len(keys) > 3 else None  # Kolom D
-            ket_raw = row.get(keys[4]) if len(keys) > 4 else None  # Kolom E
+            # Konversi dictionary agar fleksibel membaca indeks kolom
+            vals = list(row.values())
+            tgl_raw = vals[1] if len(vals) > 1 else None  # Kolom B
+            sekolah_raw = vals[2] if len(vals) > 2 else None  # Kolom C
+            jumlah_raw = vals[3] if len(vals) > 3 else None  # Kolom D
+            ket_raw = vals[4] if len(vals) > 4 else None  # Kolom E
 
             if pd.notna(tgl_raw) and str(tgl_raw).strip() != "" and "TANGGAL" not in str(tgl_raw).upper() and "JADWAL" not in str(tgl_raw).upper():
                 dates_list = parse_indonesian_date_range(tgl_raw, int(tahun_sheet), bulan_terpilih)
@@ -114,7 +120,6 @@ with col1: bln_pilihan = st.selectbox("Bulan", list(BULAN_INDO.values()), index=
 with col2: thn_pilihan = st.selectbox("Tahun", range(2024, 2030), index=range(2024, 2030).index(date.today().year))
 bln_idx = list(BULAN_INDO.values()).index(bln_pilihan) + 1
 
-# Data dimuat secara dinamis berdasarkan Tahun yang dipilih di dropdown
 jadwal_data = load_data(thn_pilihan, bln_idx)
 
 events_map = {date(thn_pilihan, bln_idx, d): [] for d in range(1, calendar.monthrange(thn_pilihan, bln_idx)[1] + 1)}
