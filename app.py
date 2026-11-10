@@ -23,14 +23,17 @@ BULAN_INDO = {
 HARI_INDO = {0: "Senin", 1: "Selasa", 2: "Rabu", 3: "Kamis", 4: "Jumat", 5: "Sabtu", 6: "Minggu"}
 HARI_LIST = ["SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU", "MINGGU"]
 
-def parse_indonesian_date_range(tgl_str, thn_default, bln_default):
+def parse_date_universal(tgl_str, thn_default, bln_default):
     tgl_str = str(tgl_str).upper().strip()
     b_num = None
+    
+    # Cari nama bulan (Januari, Feb, Nov, dll)
     for num, name in BULAN_INDO.items():
         if name.upper() in tgl_str or name[:3].upper() in tgl_str:
             b_num = num
             break
             
+    # Jika tidak ada nama bulan, pinjam bulan dari dropdown
     if not b_num:
         for h in HARI_LIST:
             if h in tgl_str:
@@ -39,6 +42,7 @@ def parse_indonesian_date_range(tgl_str, thn_default, bln_default):
         if not b_num and re.search(r'\d+', tgl_str):
             b_num = bln_default
 
+    # Cek rentang tanggal (misal 11-15)
     range_match = re.search(r'(\d+)\s*-\s*(\d+)', tgl_str)
     if range_match and b_num:
         start_d = int(range_match.group(1))
@@ -48,6 +52,7 @@ def parse_indonesian_date_range(tgl_str, thn_default, bln_default):
         except:
             return []
 
+    # Tanggal tunggal
     nums = re.findall(r'\d+', tgl_str)
     if b_num and nums:
         day_val = int(nums[0])
@@ -63,7 +68,6 @@ def parse_indonesian_date_range(tgl_str, thn_default, bln_default):
             
     return []
 
-# Menggunakan gspread agar konsisten dengan admin dan dijamin membaca sheet 2025/2026 tanpa gagal
 @st.cache_data(ttl=5)
 def load_data(tahun_sheet, bulan_terpilih):
     try:
@@ -71,38 +75,38 @@ def load_data(tahun_sheet, bulan_terpilih):
         gc = gspread.service_account_from_dict(kredensial)
         sh = gc.open_by_url(SPREADSHEET_URL)
         ws = sh.worksheet(str(tahun_sheet))
-        data = ws.get_all_records(expected_headers=[])
         
-        if not data:
-            # Alternatif jika get_all_records kosong, gunakan get_all_values
-            rows = ws.get_all_values()
-            if not rows: return []
-            header = rows[3] if len(rows) > 3 else rows[0]
-            data = [dict(zip(header, row)) for row in rows[4:]]
+        # Ambil seluruh baris secara mentah tanpa filter ribet
+        rows = ws.get_all_values()
+        if not rows: return []
 
         parsed_events = []
         active_dates = []
 
-        for row in data:
-            # Konversi dictionary agar fleksibel membaca indeks kolom
-            vals = list(row.values())
-            tgl_raw = vals[1] if len(vals) > 1 else None  # Kolom B
-            sekolah_raw = vals[2] if len(vals) > 2 else None  # Kolom C
-            jumlah_raw = vals[3] if len(vals) > 3 else None  # Kolom D
-            ket_raw = vals[4] if len(vals) > 4 else None  # Kolom E
+        # Mulai baca dari baris ke-5 ke bawah (indeks 4) untuk melewati judul & header
+        for i in range(4, len(rows)):
+            row = rows[i]
+            if len(row) < 5: continue
+            
+            tgl_raw = row[1].strip() if len(row) > 1 else ""  # Kolom B (Tanggal)
+            sekolah_raw = row[2].strip() if len(row) > 2 else ""  # Kolom C (Sekolah)
+            jumlah_raw = row[3].strip() if len(row) > 3 else ""  # Kolom D (Jumlah)
+            ket_raw = row[4].strip() if len(row) > 4 else ""  # Kolom E (Keterangan)
 
-            if pd.notna(tgl_raw) and str(tgl_raw).strip() != "" and "TANGGAL" not in str(tgl_raw).upper() and "JADWAL" not in str(tgl_raw).upper():
-                dates_list = parse_indonesian_date_range(tgl_raw, int(tahun_sheet), bulan_terpilih)
+            # Jika kolom tanggal terisi, perbarui tanggal aktif
+            if tgl_raw and "TANGGAL" not in tgl_raw.upper() and "JADWAL" not in tgl_raw.upper():
+                dates_list = parse_date_universal(tgl_raw, int(tahun_sheet), bulan_terpilih)
                 if dates_list:
                     active_dates = dates_list
 
-            if active_dates and pd.notna(sekolah_raw) and str(sekolah_raw).strip() and "SEKOLAH" not in str(sekolah_raw).upper():
+            # Jika ada tanggal aktif dan nama sekolah, masukkan ke data kalender
+            if active_dates and sekolah_raw and "SEKOLAH" not in sekolah_raw.upper():
                 for d_item in active_dates:
                     parsed_events.append({
                         "TANGGAL_DATE": d_item,
-                        "SEKOLAH": str(sekolah_raw).strip(),
-                        "JUMLAH": str(jumlah_raw).strip() if pd.notna(jumlah_raw) and str(jumlah_raw).strip() else "-",
-                        "KETERANGAN": str(ket_raw).strip() if pd.notna(ket_raw) and str(ket_raw).strip() else "-"
+                        "SEKOLAH": sekolah_raw,
+                        "JUMLAH": jumlah_raw if jumlah_raw else "-",
+                        "KETERANGAN": ket_raw if ket_raw else "-"
                     })
 
         return parsed_events
