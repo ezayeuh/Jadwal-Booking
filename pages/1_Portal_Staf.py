@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 from datetime import date
 import gspread
 
@@ -17,47 +18,39 @@ try:
     gc = gspread.service_account_from_dict(kredensial)
     sh = gc.open_by_url(SPREADSHEET_URL)
     ws = sh.worksheet(str(thn_admin))
+    
+    # Mengambil seluruh data dari sheet untuk ditampilkan di tabel
+    semua_baris = ws.get_all_values()
 except Exception as e:
     st.error(f"⚠️ Gagal terhubung atau Sheet '{thn_admin}' belum dibuat di Excel Anda. Buat dulu tab-nya.")
     st.stop()
 
+# ==============================================================
+# 1. MENAMPILKAN TABEL JADWAL KUNJUNGAN DARI EXCEL
+# ==============================================================
 st.divider()
+st.subheader(f"📋 Daftar Jadwal Kunjungan (Sheet Tahun {thn_admin})")
 
-# Membagi layar menjadi 3 kolom: Draft Booking, Tambah Jadwal, dan Hapus Jadwal
-kolom_draft, kolom_tambah, kolom_hapus = st.columns([1, 1, 1])
+if semua_baris:
+    # Mengubah data mentah Excel menjadi DataFrame agar rapi dilihat
+    df_excel = pd.DataFrame(semua_baris)
+    # Tampilkan apa adanya tanpa merusak format baris atas Excel
+    st.dataframe(df_excel.fillna("").astype(str), width="stretch")
+else:
+    st.info(f"Sheet {thn_admin} masih kosong.")
 
-# ==============================================================
-# 1. FITUR DRAFT BOOKING (DIKEMBALIKAN)
-# ==============================================================
-with kolom_draft:
-    st.subheader("📝 Draft Booking")
-    st.info("Simpan catatan atau rencana booking sementara sebelum dimasukkan ke jadwal resmi.")
-    
-    # Menggunakan st.session_state untuk menyimpan draft selama sesi aktif
-    if "draft_text" not in st.session_state:
-        st.session_state.draft_text = ""
-        
-    draft_input = st.text_area("Tulis catatan draft di sini:", value=st.session_state.draft_text, height=200)
-    
-    col_d1, col_d2 = st.columns(2)
-    with col_d1:
-        if st.button("Simpan Draft", use_container_width=True):
-            st.session_state.draft_text = draft_input
-            st.success("Draft disimpan!")
-    with col_d2:
-        if st.button("Bersihkan", use_container_width=True):
-            st.session_state.draft_text = ""
-            st.rerun()
+st.divider()
+kolom_tambah, kolom_hapus = st.columns([1, 1])
 
 # ==============================================================
-# 2. FORM TAMBAH JADWAL KE EXCEL
+# 2. FORM TAMBAH JADWAL BARU
 # ==============================================================
 with kolom_tambah:
     st.subheader("➕ Tambah Jadwal Baru")
     with st.form("form_tambah"):
         default_date = date(thn_admin, date.today().month, date.today().day) if thn_admin != date.today().year else date.today()
         tgl_input = st.date_input("Tanggal Booking", value=default_date)
-        sekolah = st.text_area("Sekolah / PIC / Kontak (Bisa di-Enter)", value=st.session_state.get("draft_text", ""))
+        sekolah = st.text_area("Sekolah / PIC / Kontak (Bisa di-Enter)")
         jumlah = st.text_area("Jumlah Peserta / Harga Tiket (Bisa di-Enter)")
         keterangan = st.text_area("Keterangan Tambahan")
         
@@ -74,7 +67,7 @@ with kolom_tambah:
                 try:
                     ws.append_row(baris_baru, value_input_option="USER_ENTERED")
                     st.cache_data.clear()
-                    st.success("✅ Data berhasil disimpan!")
+                    st.success("✅ Data berhasil disimpan ke Excel!")
                     st.rerun()
                 except Exception as e:
                     st.error(f"Gagal menyimpan data: {e}")
@@ -85,9 +78,8 @@ with kolom_tambah:
 with kolom_hapus:
     st.subheader("🗑️ Hapus Jadwal")
     
-    semua_baris = ws.get_all_values()
     opsi_hapus = []
-    
+    # Mulai membaca dari baris ke-5 ke bawah (mengabaikan judul besar & header tabel)
     for i in range(4, len(semua_baris)):
         row = semua_baris[i]
         if len(row) >= 3:
@@ -105,9 +97,9 @@ with kolom_hapus:
                 try:
                     ws.delete_rows(pilihan[0])
                     st.cache_data.clear()
-                    st.success("✅ Jadwal berhasil dihapus!")
+                    st.success("✅ Jadwal berhasil dihapus dari Excel!")
                     st.rerun()
                 except Exception as e:
                     st.error(f"Gagal menghapus: {e}")
     else:
-        st.info("Belum ada data jadwal untuk dihapus.")
+        st.info("Belum ada data jadwal di bawah baris header yang bisa dihapus.")
