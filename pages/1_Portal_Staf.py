@@ -22,19 +22,46 @@ except Exception as e:
     st.stop()
 
 st.divider()
-kolom_tambah, kolom_hapus = st.columns([1.5, 1])
 
-# FORM TAMBAH JADWAL (AMAN, MENYELIPKAN BARIS DI BAWAH TANPA MERUSAK FORMAT ATAS)
+# Membagi layar menjadi 3 kolom: Draft Booking, Tambah Jadwal, dan Hapus Jadwal
+kolom_draft, kolom_tambah, kolom_hapus = st.columns([1, 1, 1])
+
+# ==============================================================
+# 1. FITUR DRAFT BOOKING (DIKEMBALIKAN)
+# ==============================================================
+with kolom_draft:
+    st.subheader("📝 Draft Booking")
+    st.info("Simpan catatan atau rencana booking sementara sebelum dimasukkan ke jadwal resmi.")
+    
+    # Menggunakan st.session_state untuk menyimpan draft selama sesi aktif
+    if "draft_text" not in st.session_state:
+        st.session_state.draft_text = ""
+        
+    draft_input = st.text_area("Tulis catatan draft di sini:", value=st.session_state.draft_text, height=200)
+    
+    col_d1, col_d2 = st.columns(2)
+    with col_d1:
+        if st.button("Simpan Draft", use_container_width=True):
+            st.session_state.draft_text = draft_input
+            st.success("Draft disimpan!")
+    with col_d2:
+        if st.button("Bersihkan", use_container_width=True):
+            st.session_state.draft_text = ""
+            st.rerun()
+
+# ==============================================================
+# 2. FORM TAMBAH JADWAL KE EXCEL
+# ==============================================================
 with kolom_tambah:
-    st.subheader(f"➕ Tambah Jadwal Baru")
+    st.subheader("➕ Tambah Jadwal Baru")
     with st.form("form_tambah"):
         default_date = date(thn_admin, date.today().month, date.today().day) if thn_admin != date.today().year else date.today()
         tgl_input = st.date_input("Tanggal Booking", value=default_date)
-        sekolah = st.text_area("Sekolah / PIC / Kontak (Bisa di-Enter)")
+        sekolah = st.text_area("Sekolah / PIC / Kontak (Bisa di-Enter)", value=st.session_state.get("draft_text", ""))
         jumlah = st.text_area("Jumlah Peserta / Harga Tiket (Bisa di-Enter)")
         keterangan = st.text_area("Keterangan Tambahan")
         
-        if st.form_submit_button("Simpan Data", use_container_width=True):
+        if st.form_submit_button("Simpan ke Excel", use_container_width=True):
             if not sekolah:
                 st.error("Data Sekolah wajib diisi!")
             else:
@@ -47,19 +74,20 @@ with kolom_tambah:
                 try:
                     ws.append_row(baris_baru, value_input_option="USER_ENTERED")
                     st.cache_data.clear()
-                    st.success("✅ Data berhasil disimpan secara terpisah dan rapi!")
+                    st.success("✅ Data berhasil disimpan!")
                     st.rerun()
                 except Exception as e:
                     st.error(f"Gagal menyimpan data: {e}")
 
-# FORM HAPUS JADWAL (DIKUNCI MULAI BARIS 5 KE BAWAH)
+# ==============================================================
+# 3. FORM HAPUS JADWAL
+# ==============================================================
 with kolom_hapus:
-    st.subheader(f"🗑️ Hapus Jadwal")
+    st.subheader("🗑️ Hapus Jadwal")
     
     semua_baris = ws.get_all_values()
     opsi_hapus = []
     
-    # Membaca mulai dari baris ke-5 ke bawah (mengabaikan judul dan header tabel)
     for i in range(4, len(semua_baris)):
         row = semua_baris[i]
         if len(row) >= 3:
@@ -77,9 +105,9 @@ with kolom_hapus:
                 try:
                     ws.delete_rows(pilihan[0])
                     st.cache_data.clear()
-                    st.success("✅ Jadwal berhasil dihapus dari Excel!")
+                    st.success("✅ Jadwal berhasil dihapus!")
                     st.rerun()
                 except Exception as e:
                     st.error(f"Gagal menghapus: {e}")
     else:
-        st.info("Belum ada data jadwal di bawah baris header yang bisa dihapus.")
+        st.info("Belum ada data jadwal untuk dihapus.")
