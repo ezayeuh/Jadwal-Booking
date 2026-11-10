@@ -27,13 +27,11 @@ def parse_date_universal(tgl_str, thn_default, bln_default):
     tgl_str = str(tgl_str).upper().strip()
     b_num = None
     
-    # Cari nama bulan (Januari, Feb, Nov, dll)
     for num, name in BULAN_INDO.items():
         if name.upper() in tgl_str or name[:3].upper() in tgl_str:
             b_num = num
             break
             
-    # Jika tidak ada nama bulan, pinjam bulan dari dropdown
     if not b_num:
         for h in HARI_LIST:
             if h in tgl_str:
@@ -42,7 +40,6 @@ def parse_date_universal(tgl_str, thn_default, bln_default):
         if not b_num and re.search(r'\d+', tgl_str):
             b_num = bln_default
 
-    # Cek rentang tanggal (misal 11-15)
     range_match = re.search(r'(\d+)\s*-\s*(\d+)', tgl_str)
     if range_match and b_num:
         start_d = int(range_match.group(1))
@@ -52,7 +49,6 @@ def parse_date_universal(tgl_str, thn_default, bln_default):
         except:
             return []
 
-    # Tanggal tunggal
     nums = re.findall(r'\d+', tgl_str)
     if b_num and nums:
         day_val = int(nums[0])
@@ -76,30 +72,32 @@ def load_data(tahun_sheet, bulan_terpilih):
         sh = gc.open_by_url(SPREADSHEET_URL)
         ws = sh.worksheet(str(tahun_sheet))
         
-        # Ambil seluruh baris secara mentah tanpa filter ribet
         rows = ws.get_all_values()
         if not rows: return []
 
         parsed_events = []
         active_dates = []
 
-        # Mulai baca dari baris ke-5 ke bawah (indeks 4) untuk melewati judul & header
+        # Mulai baca dari baris ke-5 ke bawah (indeks 4)
         for i in range(4, len(rows)):
             row = rows[i]
-            if len(row) < 5: continue
+            if len(row) < 6: continue
             
-            tgl_raw = row[1].strip() if len(row) > 1 else ""  # Kolom B (Tanggal)
-            sekolah_raw = row[2].strip() if len(row) > 2 else ""  # Kolom C (Sekolah)
-            jumlah_raw = row[3].strip() if len(row) > 3 else ""  # Kolom D (Jumlah)
-            ket_raw = row[4].strip() if len(row) > 4 else ""  # Kolom E (Keterangan)
+            # SESUAI STRUKTUR EXCEL ANDA:
+            # Kolom C (Index 2) = TANGGAL
+            # Kolom D (Index 3) = SEKOLAH
+            # Kolom E (Index 4) = JUMLAH
+            # Kolom F (Index 5) = KETERANGAN
+            tgl_raw = row[2].strip() if len(row) > 2 else ""  
+            sekolah_raw = row[3].strip() if len(row) > 3 else ""  
+            jumlah_raw = row[4].strip() if len(row) > 4 else ""  
+            ket_raw = row[5].strip() if len(row) > 5 else ""  
 
-            # Jika kolom tanggal terisi, perbarui tanggal aktif
             if tgl_raw and "TANGGAL" not in tgl_raw.upper() and "JADWAL" not in tgl_raw.upper():
                 dates_list = parse_date_universal(tgl_raw, int(tahun_sheet), bulan_terpilih)
                 if dates_list:
                     active_dates = dates_list
 
-            # Jika ada tanggal aktif dan nama sekolah, masukkan ke data kalender
             if active_dates and sekolah_raw and "SEKOLAH" not in sekolah_raw.upper():
                 for d_item in active_dates:
                     parsed_events.append({
