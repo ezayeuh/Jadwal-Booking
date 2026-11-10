@@ -36,7 +36,7 @@ st.divider()
 kolom_tambah, kolom_hapus = st.columns([1, 1])
 
 # ==============================================================
-# FORM TAMBAH JADWAL (DIJAMIN MASUK KE KOLOM C, D, E, F, G DENGAN PAS)
+# FORM TAMBAH JADWAL (MENGGUNAKAN RANGE UPDATE EKSPLISIT)
 # ==============================================================
 with kolom_tambah:
     st.subheader("➕ Tambah Jadwal Baru")
@@ -56,20 +56,20 @@ with kolom_tambah:
                 bulan_indo = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
                 tgl_format = f"{hari_indo[tgl_input.weekday()].upper()}, {tgl_input.day} {bulan_indo[tgl_input.month-1].upper()} {tgl_input.year}"
                 
-                # PEMETAAN KOLOM YANG PRESISI 100% DENGAN EXCEL ANDA:
-                # Kolom A = Kosong ("")
-                # Kolom B = Kosong ("")
-                # Kolom C = TANGGAL (tgl_format)
-                # Kolom D = SEKOLAH (sekolah)
-                # Kolom E = KONTAK (kontak)
-                # Kolom F = JUMLAH (jumlah)
-                # Kolom G = KETERANGAN (keterangan)
-                baris_baru = ["", "", tgl_format, sekolah, kontak, jumlah, keterangan]
-                
                 try:
-                    ws.append_row(baris_baru, value_input_option="USER_ENTERED")
+                    # Hitung total baris yang ada saat ini untuk menentukan baris kosong berikutnya
+                    rows_current = ws.get_all_values()
+                    next_row = len(rows_current) + 1
+                    if next_row < 5:
+                        next_row = 5
+                    
+                    # Update langsung pada rentang Kolom C sampai G di baris kosong tersebut
+                    # Kolom C = Tanggal, D = Sekolah, E = Kontak, F = Jumlah, G = Keterangan
+                    range_cell = f"C{next_row}:G{next_row}"
+                    ws.update(range_cell, [[tgl_format, sekolah, kontak, jumlah, keterangan]])
+                    
                     st.cache_data.clear()
-                    st.success("✅ Data berhasil ditambahkan di baris baru bawah secara rapi!")
+                    st.success(f"✅ Data berhasil ditambahkan di Baris {next_row}!")
                     st.rerun()
                 except Exception as e:
                     st.error(f"Gagal menyimpan data: {e}")
@@ -83,7 +83,7 @@ with kolom_hapus:
     opsi_hapus = []
     for i in range(4, len(semua_baris)):
         row = semua_baris[i]
-        if len(row) >= 5:
+        if len(row) >= 4:
             tgl_val = str(row[2]).strip()  # Kolom C (Tanggal)
             sek_val = str(row[3]).strip()  # Kolom D (Sekolah)
             
@@ -103,4 +103,4 @@ with kolom_hapus:
                 except Exception as e:
                     st.error(f"Gagal menghapus: {e}")
     else:
-        st.info("Belum ada data jadwal untuk dihapus.")
+        st.info("Belum ada data jadwal di bawah baris header yang bisa dihapus.")
