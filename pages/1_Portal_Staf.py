@@ -35,6 +35,9 @@ else:
 st.divider()
 kolom_tambah, kolom_hapus = st.columns([1, 1])
 
+# ==============================================================
+# FORM TAMBAH JADWAL (DIJAMIN MASUK KE KOLOM C, D, E, F, G DENGAN PAS)
+# ==============================================================
 with kolom_tambah:
     st.subheader("➕ Tambah Jadwal Baru")
     with st.form("form_tambah"):
@@ -53,26 +56,36 @@ with kolom_tambah:
                 bulan_indo = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
                 tgl_format = f"{hari_indo[tgl_input.weekday()].upper()}, {tgl_input.day} {bulan_indo[tgl_input.month-1].upper()} {tgl_input.year}"
                 
-                # URUTAN KOLOM: [NO, TANGGAL(C), SEKOLAH(D), KONTAK(E), JUMLAH(F), KETERANGAN(G)]
-                baris_baru = ["", tgl_format, sekolah, kontak, jumlah, keterangan]
+                # PEMETAAN KOLOM YANG PRESISI 100% DENGAN EXCEL ANDA:
+                # Kolom A = Kosong ("")
+                # Kolom B = Kosong ("")
+                # Kolom C = TANGGAL (tgl_format)
+                # Kolom D = SEKOLAH (sekolah)
+                # Kolom E = KONTAK (kontak)
+                # Kolom F = JUMLAH (jumlah)
+                # Kolom G = KETERANGAN (keterangan)
+                baris_baru = ["", "", tgl_format, sekolah, kontak, jumlah, keterangan]
                 
                 try:
                     ws.append_row(baris_baru, value_input_option="USER_ENTERED")
                     st.cache_data.clear()
-                    st.success("✅ Data berhasil disimpan!")
+                    st.success("✅ Data berhasil ditambahkan di baris baru bawah secara rapi!")
                     st.rerun()
                 except Exception as e:
                     st.error(f"Gagal menyimpan data: {e}")
 
+# ==============================================================
+# FORM HAPUS JADWAL
+# ==============================================================
 with kolom_hapus:
     st.subheader("🗑️ Hapus Jadwal")
     
     opsi_hapus = []
     for i in range(4, len(semua_baris)):
         row = semua_baris[i]
-        if len(row) >= 4:
-            tgl_val = str(row[2]).strip()
-            sek_val = str(row[3]).strip()
+        if len(row) >= 5:
+            tgl_val = str(row[2]).strip()  # Kolom C (Tanggal)
+            sek_val = str(row[3]).strip()  # Kolom D (Sekolah)
             
             if tgl_val or sek_val:
                 opsi_hapus.append((i + 1, f"Baris {i + 1} | {tgl_val} - {sek_val}"))
