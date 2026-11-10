@@ -26,7 +26,6 @@ HARI_INDO = {0: "Senin", 1: "Selasa", 2: "Rabu", 3: "Kamis", 4: "Jumat", 5: "Sab
 HARI_LIST = ["SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU", "MINGGU"]
 
 def parse_indonesian_date_range(tgl_str, thn_default, bln_default):
-    """Mampu membaca tanggal tunggal (misal 'rabu, 11') maupun rentang (misal '11-15')"""
     tgl_str = str(tgl_str).upper().strip()
     b_num = None
     for num, name in BULAN_INDO.items():
@@ -34,7 +33,6 @@ def parse_indonesian_date_range(tgl_str, thn_default, bln_default):
             b_num = num
             break
             
-    # Jika tidak ada nama bulan, pinjam bulan dari dropdown
     if not b_num:
         for h in HARI_LIST:
             if h in tgl_str:
@@ -43,7 +41,6 @@ def parse_indonesian_date_range(tgl_str, thn_default, bln_default):
         if not b_num and re.search(r'\d+', tgl_str):
             b_num = bln_default
 
-    # Cek apakah ini rentang tanggal (misal 11-15)
     range_match = re.search(r'(\d+)\s*-\s*(\d+)', tgl_str)
     if range_match and b_num:
         start_d = int(range_match.group(1))
@@ -53,7 +50,6 @@ def parse_indonesian_date_range(tgl_str, thn_default, bln_default):
         except:
             return []
 
-    # Jika tanggal tunggal
     nums = re.findall(r'\d+', tgl_str)
     if b_num and nums:
         day_val = int(nums[0])
@@ -72,6 +68,7 @@ def parse_indonesian_date_range(tgl_str, thn_default, bln_default):
 @st.cache_data(ttl=5)
 def load_data(tahun_sheet, bulan_terpilih):
     try:
+        # Membaca sheet DINAMIS sesuai tahun yang dipilih pengunjung
         df_raw = conn.read(spreadsheet=SPREADSHEET_URL, worksheet=str(tahun_sheet), ttl=0)
         if df_raw.empty: return []
 
@@ -86,13 +83,11 @@ def load_data(tahun_sheet, bulan_terpilih):
             jumlah_raw = row.get(keys[3]) if len(keys) > 3 else None  # Kolom D
             ket_raw = row.get(keys[4]) if len(keys) > 4 else None  # Kolom E
 
-            # Jika kolom tanggal terisi
             if pd.notna(tgl_raw) and str(tgl_raw).strip() != "" and "TANGGAL" not in str(tgl_raw).upper() and "JADWAL" not in str(tgl_raw).upper():
                 dates_list = parse_indonesian_date_range(tgl_raw, int(tahun_sheet), bulan_terpilih)
                 if dates_list:
                     active_dates = dates_list
 
-            # Masukkan event ke semua tanggal yang aktif (mendukung rentang seperti 11-15)
             if active_dates and pd.notna(sekolah_raw) and str(sekolah_raw).strip() and "SEKOLAH" not in str(sekolah_raw).upper():
                 for d_item in active_dates:
                     parsed_events.append({
@@ -106,7 +101,6 @@ def load_data(tahun_sheet, bulan_terpilih):
     except Exception as e:
         return []
 
-# Banner
 st.markdown("""
 <div style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: white; padding: 15px 20px; border-radius: 12px; margin-bottom: 15px;">
     <h1 style="color: white !important; font-size: 20px; margin: 0 0 3px 0;">📅 Papan Informasi Jadwal Kunjungan</h1>
@@ -118,6 +112,7 @@ with col1: bln_pilihan = st.selectbox("Bulan", list(BULAN_INDO.values()), index=
 with col2: thn_pilihan = st.selectbox("Tahun", range(2024, 2030), index=range(2024, 2030).index(date.today().year))
 bln_idx = list(BULAN_INDO.values()).index(bln_pilihan) + 1
 
+# Memanggil data berdasarkan tahun sheet yang dipilih
 jadwal_data = load_data(thn_pilihan, bln_idx)
 
 events_map = {date(thn_pilihan, bln_idx, d): [] for d in range(1, calendar.monthrange(thn_pilihan, bln_idx)[1] + 1)}
