@@ -28,6 +28,8 @@ HARI_LIST = ["SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU", "MINGGU"]
 def parse_indonesian_date_range(tgl_str, thn_default, bln_default):
     tgl_str = str(tgl_str).upper().strip()
     b_num = None
+    
+    # Deteksi nama bulan utuh atau 3 huruf pertama (misal: NOV, OKT, DES)
     for num, name in BULAN_INDO.items():
         if name.upper() in tgl_str or name[:3].upper() in tgl_str:
             b_num = num
@@ -68,7 +70,7 @@ def parse_indonesian_date_range(tgl_str, thn_default, bln_default):
 @st.cache_data(ttl=5)
 def load_data(tahun_sheet, bulan_terpilih):
     try:
-        # Membaca sheet DINAMIS sesuai tahun yang dipilih pengunjung
+        # Membaca sheet sesuai tahun yang dipilih pengunjung (misal "2025" atau "2026")
         df_raw = conn.read(spreadsheet=SPREADSHEET_URL, worksheet=str(tahun_sheet), ttl=0)
         if df_raw.empty: return []
 
@@ -112,7 +114,7 @@ with col1: bln_pilihan = st.selectbox("Bulan", list(BULAN_INDO.values()), index=
 with col2: thn_pilihan = st.selectbox("Tahun", range(2024, 2030), index=range(2024, 2030).index(date.today().year))
 bln_idx = list(BULAN_INDO.values()).index(bln_pilihan) + 1
 
-# Memanggil data berdasarkan tahun sheet yang dipilih
+# Data dimuat secara dinamis berdasarkan Tahun yang dipilih di dropdown
 jadwal_data = load_data(thn_pilihan, bln_idx)
 
 events_map = {date(thn_pilihan, bln_idx, d): [] for d in range(1, calendar.monthrange(thn_pilihan, bln_idx)[1] + 1)}
