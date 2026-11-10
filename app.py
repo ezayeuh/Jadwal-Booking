@@ -23,56 +23,50 @@ BULAN_INDO = {
     7: "Juli", 8: "Agustus", 9: "September", 10: "Oktober", 11: "November", 12: "Desember"
 }
 HARI_INDO = {0: "Senin", 1: "Selasa", 2: "Rabu", 3: "Kamis", 4: "Jumat", 5: "Sabtu", 6: "Minggu"}
+HARI_LIST = ["SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU", "MINGGU"]
 
-def parse_indonesian_date(tgl_str, thn_default):
+# Fungsi ini sekarang dibuat JAUH LEBIH PINTAR untuk mendeteksi teks "JUMAT, 13" tanpa bulan
+def parse_indonesian_date(tgl_str, thn_default, bln_default):
     tgl_str = str(tgl_str).upper().strip()
+    
     b_num = None
+    # 1. Cari apakah ada nama bulan yang ditulis jelas (misal: 19 NOVEMBER)
     for num, name in BULAN_INDO.items():
         if name.upper() in tgl_str or name[:3].upper() in tgl_str:
             b_num = num
             break
             
-    if b_num:
-        nums = re.findall(r'\d+', tgl_str)
-        if nums:
-            day_val = int(nums[0])
-            year_val = thn_default 
-            for n in nums[1:]:
-                if len(n) == 4:
-                    year_val = int(n)
-                    break
-            try:
-                return date(year_val, b_num, day_val)
-            except:
-                pass
+    nums = re.findall(r'\d+', tgl_str)
+    
+    # 2. Jika tidak ada nama bulan, TAPI ada nama Hari dan Angka (misal: JUMAT, 13)
+    if not b_num and nums:
+        for h in HARI_LIST:
+            if h in tgl_str:
+                b_num = bln_default # Pinjam bulan dari dropdown yang sedang dibuka user
+                break
+                
+    if b_num and nums:
+        day_val = int(nums[0])
+        year_val = thn_default 
+        for n in nums[1:]:
+            if len(n) == 4:
+                year_val = int(n)
+                break
+        try:
+            return date(year_val, b_num, day_val)
+        except:
+            pass
+            
     return None
 
-# ==============================================================
-# CACHE DATA PER TAHUN SHEET
-# ==============================================================
 @st.cache_data(ttl=600)
-def load_data(tahun_sheet):
+def load_data(tahun_sheet, bulan_terpilih):
     try:
-        # Membaca data dari Sheet bernama Tahun (Contoh: "2026")
+        # BACA DATA APA ADANYA
         df_raw = conn.read(spreadsheet=SPREADSHEET_URL, worksheet=str(tahun_sheet), ttl=600)
         if df_raw.empty: return []
 
-        header_idx = None
-        for i in range(min(15, len(df_raw))):
-            row_str = " ".join([str(x).upper() for x in df_raw.iloc[i].values])
-            if "TANGGAL" in row_str and "SEKOLAH" in row_str:
-                header_idx = i
-                break
-        
-        if header_idx is not None:
-            df_raw.columns = [str(c).upper().strip() for c in df_raw.iloc[header_idx].values]
-            df = df_raw.iloc[header_idx + 1:].reset_index(drop=True)
-        else:
-            df = df_raw
-            if len(df.columns) >= 6:
-                df.columns = ["A", "NO", "TANGGAL", "SEKOLAH", "JUMLAH", "KETERANGAN"] + list(df.columns[6:])
-
-        data = df.to_dict(orient="records")
+        data = df_raw.to_dict(orient="records")
         parsed_events = []
         current_date = None
         current_grup, current_jumlah, current_ket = [], [], []
@@ -87,30 +81,34 @@ def load_data(tahun_sheet):
                 })
 
         for row in data:
-            tgl_raw = row.get("TANGGAL")
-            sekolah_raw = row.get("SEKOLAH")
-            jumlah_raw = row.get("JUMLAH")
-            ket_raw = row.get("KETERANGAN")
+            # Karena DataFrame mentah tanpa header terbaca sebagai key index (0,1,2,3,4)
+            keys = list(row.keys())
+            tgl_raw = row.get(keys[1]) if len(keys) > 1 else None  # Kolom B
+            sekolah_raw = row.get(keys[2]) if len(keys) > 2 else None  # Kolom C
+            jumlah_raw = row.get(keys[3]) if len(keys) > 3 else None  # Kolom D
+            ket_raw = row.get(keys[4]) if len(keys) > 4 else None  # Kolom E
 
-            if pd.notna(tgl_raw) and str(tgl_raw).strip() != "" and str(tgl_raw).upper() != "TANGGAL":
-                parsed_d = parse_indonesian_date(tgl_raw, int(tahun_sheet))
+            # Cek apakah baris ini berisi tanggal (Entah pakai nama bulan atau cuma "JUMAT, 13")
+            if pd.notna(tgl_raw) and str(tgl_raw).strip() != "" and "TANGGAL" not in str(tgl_raw).upper() and "JADWAL" not in str(tgl_raw).upper():
+                parsed_d = parse_indonesian_date(tgl_raw, int(tahun_sheet), bulan_terpilih)
                 if parsed_d:
                     simpan_grup_sebelumnya()
                     current_date = parsed_d
                     current_grup, current_jumlah, current_ket = [], [], []
 
+            # Tambahkan Data Rincian ke Tanggal yang sedang aktif
             if current_date:
-                if pd.notna(sekolah_raw) and str(sekolah_raw).strip():
-                    current_grup.append(f"👤 {str(sekolah_raw).strip()}")
-                if pd.notna(jumlah_raw) and str(jumlah_raw).strip():
+                # Pastikan tidak memasukkan header tabel ke dalam daftar
+                if pd.notna(sekolah_raw) and str(sekolah_raw).strip() and "SEKOLAH" not in str(sekolah_raw).upper():
+                    current_grup.append(f"👤 <b>{str(sekolah_raw).strip()}</b>")
+                if pd.notna(jumlah_raw) and str(jumlah_raw).strip() and "JUMLAH" not in str(jumlah_raw).upper():
                     current_jumlah.append(str(jumlah_raw).strip())
-                if pd.notna(ket_raw) and str(ket_raw).strip():
+                if pd.notna(ket_raw) and str(ket_raw).strip() and "KETERANGAN" not in str(ket_raw).upper():
                     current_ket.append(str(ket_raw).strip())
 
         simpan_grup_sebelumnya()
         return parsed_events
     except Exception as e:
-        st.warning(f"Tidak dapat membaca data untuk Tahun {tahun_sheet}. Pastikan nama Sheet di Google Sheets sudah dibuat (misal: '{tahun_sheet}').")
         return []
 
 # Banner
@@ -120,14 +118,14 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# FILTER BULAN & TAHUN DIPINDAH KE ATAS
+# FILTER BULAN & TAHUN
 col1, col2 = st.columns(2)
 with col1: bln_pilihan = st.selectbox("Bulan", list(BULAN_INDO.values()), index=date.today().month - 1)
 with col2: thn_pilihan = st.selectbox("Tahun", range(2024, 2030), index=range(2024, 2030).index(date.today().year))
 bln_idx = list(BULAN_INDO.values()).index(bln_pilihan) + 1
 
-# LOAD DATA BERDASARKAN TAHUN YANG DIPILIH
-jadwal_data = load_data(thn_pilihan)
+# LOAD DATA
+jadwal_data = load_data(thn_pilihan, bln_idx)
 
 # Mapping Event
 events_map = {date(thn_pilihan, bln_idx, d): [] for d in range(1, calendar.monthrange(thn_pilihan, bln_idx)[1] + 1)}
@@ -186,8 +184,8 @@ if events_selected:
     for ev in events_selected:
         detail_html += f"""
         <div style='background: #f8fafc; border-left: 4px solid #0284c7; padding: 10px; margin-bottom: 10px; border-radius: 5px;'>
-            <div style='font-size: 14px; font-weight: bold; color: #0284c7;'>{ev['SEKOLAH']}</div>
-            <div style='font-size: 12px; margin-top:5px;'>👥 <b>Rincian Tiket:</b><br>{ev['JUMLAH']}</div>
+            <div style='font-size: 14px; color: #0284c7;'>{ev['SEKOLAH']}</div>
+            <div style='font-size: 12px; margin-top:8px; border-top: 1px dashed #cbd5e1; padding-top: 5px;'>👥 <b>Rincian Tiket:</b><br>{ev['JUMLAH']}</div>
             <div style='font-size: 12px; margin-top:5px; color: #d97706;'>📝 <b>Catatan:</b><br>{ev['KETERANGAN']}</div>
         </div>"""
 else:
