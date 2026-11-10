@@ -25,7 +25,8 @@ BULAN_INDO = {
 HARI_INDO = {0: "Senin", 1: "Selasa", 2: "Rabu", 3: "Kamis", 4: "Jumat", 5: "Sabtu", 6: "Minggu"}
 HARI_LIST = ["SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU", "MINGGU"]
 
-def parse_indonesian_date(tgl_str, thn_default, bln_default):
+def parse_indonesian_date_range(tgl_str, thn_default, bln_default):
+    """Mampu membaca tanggal tunggal (misal 'rabu, 11') maupun rentang (misal '11-15')"""
     tgl_str = str(tgl_str).upper().strip()
     b_num = None
     for num, name in BULAN_INDO.items():
@@ -33,13 +34,27 @@ def parse_indonesian_date(tgl_str, thn_default, bln_default):
             b_num = num
             break
             
-    nums = re.findall(r'\d+', tgl_str)
-    if not b_num and nums:
+    # Jika tidak ada nama bulan, pinjam bulan dari dropdown
+    if not b_num:
         for h in HARI_LIST:
             if h in tgl_str:
                 b_num = bln_default
                 break
-                
+        if not b_num and re.search(r'\d+', tgl_str):
+            b_num = bln_default
+
+    # Cek apakah ini rentang tanggal (misal 11-15)
+    range_match = re.search(r'(\d+)\s*-\s*(\d+)', tgl_str)
+    if range_match and b_num:
+        start_d = int(range_match.group(1))
+        end_d = int(range_match.group(2))
+        try:
+            return [date(thn_default, b_num, d) for d in range(start_d, end_d + 1)]
+        except:
+            return []
+
+    # Jika tanggal tunggal
+    nums = re.findall(r'\d+', tgl_str)
     if b_num and nums:
         day_val = int(nums[0])
         year_val = thn_default 
@@ -48,12 +63,12 @@ def parse_indonesian_date(tgl_str, thn_default, bln_default):
                 year_val = int(n)
                 break
         try:
-            return date(year_val, b_num, day_val)
+            return [date(year_val, b_num, day_val)]
         except:
             pass
-    return None
+            
+    return []
 
-# TTL diset pendek (5 detik) agar data baru dari admin langsung muncul tanpa menunggu lama
 @st.cache_data(ttl=5)
 def load_data(tahun_sheet, bulan_terpilih):
     try:
@@ -62,56 +77,55 @@ def load_data(tahun_sheet, bulan_terpilih):
 
         data = df_raw.to_dict(orient="records")
         parsed_events = []
-        last_date = None
+        active_dates = []
 
         for row in data:
             keys = list(row.keys())
-            tgl_raw = row.get(keys[1]) if len(keys) > 1 else None  # Kolom B (Tanggal)
-            sekolah_raw = row.get(keys[2]) if len(keys) > 2 else None  # Kolom C (Sekolah)
-            jumlah_raw = row.get(keys[3]) if len(keys) > 3 else None  # Kolom D (Jumlah)
-            ket_raw = row.get(keys[4]) if len(keys) > 4 else None  # Kolom E (Keterangan)
+            tgl_raw = row.get(keys[1]) if len(keys) > 1 else None  # Kolom B
+            sekolah_raw = row.get(keys[2]) if len(keys) > 2 else None  # Kolom C
+            jumlah_raw = row.get(keys[3]) if len(keys) > 3 else None  # Kolom D
+            ket_raw = row.get(keys[4]) if len(keys) > 4 else None  # Kolom E
 
+            # Jika kolom tanggal terisi
             if pd.notna(tgl_raw) and str(tgl_raw).strip() != "" and "TANGGAL" not in str(tgl_raw).upper() and "JADWAL" not in str(tgl_raw).upper():
-                parsed_d = parse_indonesian_date(tgl_raw, int(tahun_sheet), bulan_terpilih)
-                if parsed_d:
-                    last_date = parsed_d
+                dates_list = parse_indonesian_date_range(tgl_raw, int(tahun_sheet), bulan_terpilih)
+                if dates_list:
+                    active_dates = dates_list
 
-            if last_date and pd.notna(sekolah_raw) and str(sekolah_raw).strip() and "SEKOLAH" not in str(sekolah_raw).upper():
-                parsed_events.append({
-                    "TANGGAL_DATE": last_date,
-                    "SEKOLAH": str(sekolah_raw).strip(),
-                    "JUMLAH": str(jumlah_raw).strip() if pd.notna(jumlah_raw) and str(jumlah_raw).strip() else "-",
-                    "KETERANGAN": str(ket_raw).strip() if pd.notna(ket_raw) and str(ket_raw).strip() else "-"
-                })
+            # Masukkan event ke semua tanggal yang aktif (mendukung rentang seperti 11-15)
+            if active_dates and pd.notna(sekolah_raw) and str(sekolah_raw).strip() and "SEKOLAH" not in str(sekolah_raw).upper():
+                for d_item in active_dates:
+                    parsed_events.append({
+                        "TANGGAL_DATE": d_item,
+                        "SEKOLAH": str(sekolah_raw).strip(),
+                        "JUMLAH": str(jumlah_raw).strip() if pd.notna(jumlah_raw) and str(jumlah_raw).strip() else "-",
+                        "KETERANGAN": str(ket_raw).strip() if pd.notna(ket_raw) and str(ket_raw).strip() else "-"
+                    })
 
         return parsed_events
     except Exception as e:
         return []
 
-# Banner Header
+# Banner
 st.markdown("""
 <div style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: white; padding: 15px 20px; border-radius: 12px; margin-bottom: 15px;">
     <h1 style="color: white !important; font-size: 20px; margin: 0 0 3px 0;">📅 Papan Informasi Jadwal Kunjungan</h1>
 </div>
 """, unsafe_allow_html=True)
 
-# FILTER BULAN & TAHUN
 col1, col2 = st.columns(2)
 with col1: bln_pilihan = st.selectbox("Bulan", list(BULAN_INDO.values()), index=date.today().month - 1)
 with col2: thn_pilihan = st.selectbox("Tahun", range(2024, 2030), index=range(2024, 2030).index(date.today().year))
 bln_idx = list(BULAN_INDO.values()).index(bln_pilihan) + 1
 
-# LOAD DATA
 jadwal_data = load_data(thn_pilihan, bln_idx)
 
-# Mapping Event
 events_map = {date(thn_pilihan, bln_idx, d): [] for d in range(1, calendar.monthrange(thn_pilihan, bln_idx)[1] + 1)}
 for item in jadwal_data:
     if item["TANGGAL_DATE"].month == bln_idx and item["TANGGAL_DATE"].year == thn_pilihan:
         if item["TANGGAL_DATE"] in events_map:
             events_map[item["TANGGAL_DATE"]].append(item)
 
-# RENDER KALENDER HTML
 calendar.setfirstweekday(calendar.MONDAY)
 html_code = """<style>
 .cal-container { background: white; border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px; }
@@ -150,7 +164,6 @@ if clicked_date:
     st.session_state.selected_date = date.fromisoformat(clicked_date)
     st.rerun()
 
-# DETAIL TANGGAL TERPILIH
 sel_date = st.session_state.selected_date
 st.markdown(f"#### 💬 Detail Kunjungan: {HARI_INDO[sel_date.weekday()]}, {sel_date.day} {BULAN_INDO[sel_date.month]} {sel_date.year}")
 
