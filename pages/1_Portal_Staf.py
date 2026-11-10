@@ -24,6 +24,7 @@ except Exception as e:
 st.divider()
 kolom_tambah, kolom_hapus = st.columns([1.5, 1])
 
+# FORM TAMBAH JADWAL (AMAN, MENYELIPKAN BARIS DI BAWAH TANPA MERUSAK FORMAT ATAS)
 with kolom_tambah:
     st.subheader(f"➕ Tambah Jadwal Baru")
     with st.form("form_tambah"):
@@ -39,8 +40,6 @@ with kolom_tambah:
             else:
                 hari_indo = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
                 bulan_indo = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
-                
-                # Format tanggal lengkap agar selalu terbaca mandiri oleh sistem
                 tgl_format = f"{hari_indo[tgl_input.weekday()].upper()}, {tgl_input.day} {bulan_indo[tgl_input.month-1].upper()} {tgl_input.year}"
                 
                 baris_baru = ["", tgl_format, sekolah, jumlah, keterangan]
@@ -53,12 +52,14 @@ with kolom_tambah:
                 except Exception as e:
                     st.error(f"Gagal menyimpan data: {e}")
 
+# FORM HAPUS JADWAL (DIKUNCI MULAI BARIS 5 KE BAWAH)
 with kolom_hapus:
     st.subheader(f"🗑️ Hapus Jadwal")
     
     semua_baris = ws.get_all_values()
     opsi_hapus = []
     
+    # Membaca mulai dari baris ke-5 ke bawah (mengabaikan judul dan header tabel)
     for i in range(4, len(semua_baris)):
         row = semua_baris[i]
         if len(row) >= 3:
