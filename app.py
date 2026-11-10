@@ -65,18 +65,18 @@ def load_data(tahun_sheet, bulan_terpilih):
 
         for row in data:
             keys = list(row.keys())
-            tgl_raw = row.get(keys[1]) if len(keys) > 1 else None  # Kolom B
-            sekolah_raw = row.get(keys[2]) if len(keys) > 2 else None  # Kolom C
-            jumlah_raw = row.get(keys[3]) if len(keys) > 3 else None  # Kolom D
-            ket_raw = row.get(keys[4]) if len(keys) > 4 else None  # Kolom E
+            tgl_raw = row.get(keys[1]) if len(keys) > 1 else None  # Kolom B (Tanggal)
+            sekolah_raw = row.get(keys[2]) if len(keys) > 2 else None  # Kolom C (Sekolah)
+            jumlah_raw = row.get(keys[3]) if len(keys) > 3 else None  # Kolom D (Jumlah)
+            ket_raw = row.get(keys[4]) if len(keys) > 4 else None  # Kolom E (Keterangan)
 
-            # Cek tanggal pada baris ini
+            # Jika kolom tanggal terisi, simpan sebagai tanggal aktif baru
             if pd.notna(tgl_raw) and str(tgl_raw).strip() != "" and "TANGGAL" not in str(tgl_raw).upper() and "JADWAL" not in str(tgl_raw).upper():
                 parsed_d = parse_indonesian_date(tgl_raw, int(tahun_sheet), bulan_terpilih)
                 if parsed_d:
                     last_date = parsed_d
 
-            # Jika baris ini memiliki sekolah/grup, jadikan sebagai entri tersendiri (tidak digabung)
+            # Jika ada tanggal aktif (baik dari baris itu sendiri maupun meneruskan baris atasnya) DAN ada nama sekolah
             if last_date and pd.notna(sekolah_raw) and str(sekolah_raw).strip() and "SEKOLAH" not in str(sekolah_raw).upper():
                 parsed_events.append({
                     "TANGGAL_DATE": last_date,
@@ -89,25 +89,30 @@ def load_data(tahun_sheet, bulan_terpilih):
     except Exception as e:
         return []
 
+# Banner Header
 st.markdown("""
 <div style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: white; padding: 15px 20px; border-radius: 12px; margin-bottom: 15px;">
     <h1 style="color: white !important; font-size: 20px; margin: 0 0 3px 0;">📅 Papan Informasi Jadwal Kunjungan</h1>
 </div>
 """, unsafe_allow_html=True)
 
+# FILTER BULAN & TAHUN
 col1, col2 = st.columns(2)
 with col1: bln_pilihan = st.selectbox("Bulan", list(BULAN_INDO.values()), index=date.today().month - 1)
 with col2: thn_pilihan = st.selectbox("Tahun", range(2024, 2030), index=range(2024, 2030).index(date.today().year))
 bln_idx = list(BULAN_INDO.values()).index(bln_pilihan) + 1
 
+# LOAD DATA SESUAI TAHUN & BULAN
 jadwal_data = load_data(thn_pilihan, bln_idx)
 
+# Mapping ke kalender
 events_map = {date(thn_pilihan, bln_idx, d): [] for d in range(1, calendar.monthrange(thn_pilihan, bln_idx)[1] + 1)}
 for item in jadwal_data:
     if item["TANGGAL_DATE"].month == bln_idx and item["TANGGAL_DATE"].year == thn_pilihan:
         if item["TANGGAL_DATE"] in events_map:
             events_map[item["TANGGAL_DATE"]].append(item)
 
+# RENDER KALENDER HTML
 calendar.setfirstweekday(calendar.MONDAY)
 html_code = """<style>
 .cal-container { background: white; border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px; }
@@ -146,6 +151,7 @@ if clicked_date:
     st.session_state.selected_date = date.fromisoformat(clicked_date)
     st.rerun()
 
+# DETAIL TANGGAL TERPILIH
 sel_date = st.session_state.selected_date
 st.markdown(f"#### 💬 Detail Kunjungan: {HARI_INDO[sel_date.weekday()]}, {sel_date.day} {BULAN_INDO[sel_date.month]} {sel_date.year}")
 
@@ -156,8 +162,8 @@ if events_selected:
     for ev in events_selected:
         detail_html += f"""
         <div style='background: #f8fafc; border-left: 4px solid #0284c7; padding: 10px; margin-bottom: 10px; border-radius: 5px;'>
-            <div style='font-size: 14px; font-weight: bold; color: #0284c7;'>👤 {ev['SEKOLAH']}</div>
-            <div style='font-size: 12px; margin-top:5px;'>👥 <b>Rincian Tiket:</b> {ev['JUMLAH']}</div>
+            <div style='font-size: 14px; font-weight: bold; color: #0284c7;'>🏛️ {ev['SEKOLAH']}</div>
+            <div style='font-size: 12px; margin-top:5px;'>👥 <b>Jumlah/Tiket:</b> {ev['JUMLAH']}</div>
             <div style='font-size: 12px; margin-top:3px; color: #d97706;'>📝 <b>Catatan:</b> {ev['KETERANGAN']}</div>
         </div>"""
 else:
