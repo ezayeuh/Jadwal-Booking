@@ -26,17 +26,15 @@ try:
     df_raw = conn.read(spreadsheet=SPREADSHEET_URL, worksheet=str(thn_admin), ttl=600)
 except Exception:
     sheet_exists = False
-    df_raw = pd.DataFrame(columns=["NO", "TANGGAL", "SEKOLAH", "JUMLAH", "KETERANGAN"])
+    df_raw = pd.DataFrame()
 
 # ==============================================================
-# 2. PENCARIAN POSISI KOLOM & HEADER SECARA OTOMATIS
+# 2. PENCARIAN POSISI KOLOM SECARA OTOMATIS
 # ==============================================================
 header_idx = None
 col_tgl, col_sek, col_jum, col_ket = -1, -1, -1, -1
-header_row_vals = []
 
 if sheet_exists and not df_raw.empty:
-    # Cari baris yang berisi judul kolom (TANGGAL, SEKOLAH)
     for i in range(min(15, len(df_raw))):
         row_str = " ".join([str(x).upper() for x in df_raw.iloc[i].values])
         if "TANGGAL" in row_str and "SEKOLAH" in row_str:
@@ -44,7 +42,7 @@ if sheet_exists and not df_raw.empty:
             header_row_vals = [str(x).upper().strip() for x in df_raw.iloc[i].values]
             break
             
-    if not header_row_vals:
+    if header_idx is None:
         header_row_vals = [str(x).upper().strip() for x in df_raw.columns]
 
     for idx, val in enumerate(header_row_vals):
@@ -65,11 +63,10 @@ if sheet_exists and not df_raw.empty:
         df_display = df_display.iloc[header_idx + 1:].reset_index(drop=True)
     st.dataframe(df_display.fillna("").astype(str), width="stretch")
 else:
-    st.info(f"✨ **Sheet '{thn_admin}' belum tersedia di Google Sheets.**\n\nSistem akan otomatis membuatkannya saat Anda menyimpan data pertama.")
+    st.error(f"⚠️ **Sheet '{thn_admin}' tidak ditemukan.**\n\nSilakan buka Google Sheets Anda, klik tombol **(+) Tambah Sheet** di pojok kiri bawah, dan beri nama **{thn_admin}** agar Anda bisa mengisi jadwal.")
 
 st.divider()
 
-# Membagi layar jadi 2 kolom: Sebelah kiri untuk TAMBAH, sebelah kanan untuk HAPUS
 kolom_tambah, kolom_hapus = st.columns([1.5, 1])
 
 # ==============================================================
@@ -85,7 +82,9 @@ with kolom_tambah:
         keterangan = st.text_area("Keterangan Tambahan")
         
         if st.form_submit_button("Simpan Data", use_container_width=True):
-            if tgl_input.year != thn_admin:
+            if not sheet_exists:
+                st.error(f"Buat dulu Sheet '{thn_admin}' di Google Sheets Anda sebelum menyimpan data!")
+            elif tgl_input.year != thn_admin:
                 st.error(f"Tahun tanggal ({tgl_input.year}) tidak cocok dengan Sheet ({thn_admin}).")
             elif not sekolah:
                 st.error("Data Sekolah / PIC wajib diisi!")
@@ -115,16 +114,8 @@ with kolom_tambah:
                     st.cache_data.clear()
                     st.success("✅ Data berhasil disimpan!")
                     st.rerun()
-                except Exception:
-                    try:
-                        sh = conn.client.open_by_url(SPREADSHEET_URL)
-                        sh.add_worksheet(title=str(thn_admin), rows=1000, cols=10)
-                        conn.update(spreadsheet=SPREADSHEET_URL, worksheet=str(thn_admin), data=updated_df)
-                        st.cache_data.clear()
-                        st.success(f"🎉 Sheet '{thn_admin}' dibuat dan data disimpan!")
-                        st.rerun()
-                    except Exception as fatal_error:
-                        st.error(f"Gagal membuat sheet: {fatal_error}")
+                except Exception as e:
+                    st.error(f"Gagal menyimpan data: {e}")
 
 # ==============================================================
 # 5. FORM HAPUS JADWAL
@@ -133,35 +124,29 @@ with kolom_hapus:
     st.subheader(f"🗑️ Hapus Jadwal")
     if sheet_exists and not df_raw.empty and header_idx is not None:
         opsi_hapus = []
-        # Mengambil daftar jadwal yang ada di bawah baris judul (TANGGAL, SEKOLAH)
         for idx in range(header_idx + 1, len(df_raw)):
             row = df_raw.iloc[idx]
-            
-            # Cek nilai menggunakan indeks kolom yang sudah terdeteksi di atas
             tgl_val = str(row.iloc[col_tgl]) if col_tgl != -1 and col_tgl < len(row) else (str(row.iloc[1]) if len(row) > 1 else "")
             sek_val = str(row.iloc[col_sek]) if col_sek != -1 and col_sek < len(row) else (str(row.iloc[2]) if len(row) > 2 else "")
             
             tgl_val, sek_val = tgl_val.strip(), sek_val.strip()
             
-            # Abaikan jika baris benar-benar kosong
             if tgl_val or sek_val:
                 label_teks = f"{tgl_val} - {sek_val}".strip(" - ")
                 opsi_hapus.append((idx, f"Baris {idx + 2} | {label_teks}"))
                 
         if opsi_hapus:
             with st.form("form_hapus"):
-                # Buat Dropdown Pencarian
                 pilihan_hapus = st.selectbox(
                     "Pilih Jadwal yang ingin dihapus:", 
                     opsi_hapus, 
-                    format_func=lambda x: x[1] # Menampilkan teks labelnya saja
+                    format_func=lambda x: x[1]
                 )
                 
                 submit_hapus = st.form_submit_button("🗑️ Hapus Baris Ini", type="primary", use_container_width=True)
                 
                 if submit_hapus:
                     idx_to_drop = pilihan_hapus[0]
-                    # Menghapus index secara spesifik dan meresetnya agar struktur dataframe aman
                     df_updated_hapus = df_raw.drop(index=idx_to_drop).reset_index(drop=True)
                     
                     try:
