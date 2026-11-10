@@ -77,48 +77,35 @@ def load_data(tahun_sheet, bulan_terpilih):
 
         parsed_events = []
         active_dates = []
-        last_event = None
 
+        # Mulai baca dari baris ke-5 ke bawah (indeks 4)
         for i in range(4, len(rows)):
             row = rows[i]
             if len(row) < 6: continue
             
-            tgl_raw = row[2].strip() if len(row) > 2 else ""  # Kolom C (Tanggal)
-            sekolah_raw = row[3].strip() if len(row) > 3 else ""  # Kolom D (Sekolah)
-            jumlah_raw = row[4].strip() if len(row) > 4 else ""  # Kolom E (Jumlah)
-            ket_raw = row[5].strip() if len(row) > 5 else ""  # Kolom F (Keterangan)
+            # SESUAI STRUKTUR EXCEL ANDA:
+            # Kolom C (Index 2) = TANGGAL
+            # Kolom D (Index 3) = SEKOLAH
+            # Kolom E (Index 4) = JUMLAH
+            # Kolom F (Index 5) = KETERANGAN
+            tgl_raw = row[2].strip() if len(row) > 2 else ""  
+            sekolah_raw = row[3].strip() if len(row) > 3 else ""  
+            jumlah_raw = row[4].strip() if len(row) > 4 else ""  
+            ket_raw = row[5].strip() if len(row) > 5 else ""  
 
-            # Jika kolom tanggal terisi, perbarui tanggal aktif
             if tgl_raw and "TANGGAL" not in tgl_raw.upper() and "JADWAL" not in tgl_raw.upper():
                 dates_list = parse_date_universal(tgl_raw, int(tahun_sheet), bulan_terpilih)
                 if dates_list:
                     active_dates = dates_list
-                    last_event = None # Reset referensi event utama saat tanggal berganti
 
-            # Jika ada sekolah di baris ini
             if active_dates and sekolah_raw and "SEKOLAH" not in sekolah_raw.upper():
-                # CEK APAKAH INI BARIS UTAMA ATAU BARIS LANJUTAN (KONTAK DI BAWAHNYA)
-                # Jika kolom tanggal KOSONG tapi ada sekolah/kontak di bawahnya, gabungkan ke event terakhir!
-                if not tgl_raw and last_event and last_event["TANGGAL_DATE"] == active_dates[0]:
-                    if sekolah_raw:
-                        last_event["SEKOLAH"] += f"<br>{sekolah_raw}"
-                    if jumlah_raw:
-                        if last_event["JUMLAH"] == "-": last_event["JUMLAH"] = jumlah_raw
-                        else: last_event["JUMLAH"] += f" | {jumlah_raw}"
-                    if ket_raw:
-                        if last_event["KETERANGAN"] == "-": last_event["KETERANGAN"] = ket_raw
-                        else: last_event["KETERANGAN"] += f" | {ket_raw}"
-                else:
-                    # Buat event baru yang berdiri sendiri
-                    for d_item in active_dates:
-                        new_ev = {
-                            "TANGGAL_DATE": d_item,
-                            "SEKOLAH": sekolah_raw,
-                            "JUMLAH": jumlah_raw if jumlah_raw else "-",
-                            "KETERANGAN": ket_raw if ket_raw else "-"
-                        }
-                        parsed_events.append(new_ev)
-                        last_event = new_ev
+                for d_item in active_dates:
+                    parsed_events.append({
+                        "TANGGAL_DATE": d_item,
+                        "SEKOLAH": sekolah_raw,
+                        "JUMLAH": jumlah_raw if jumlah_raw else "-",
+                        "KETERANGAN": ket_raw if ket_raw else "-"
+                    })
 
         return parsed_events
     except Exception as e:
