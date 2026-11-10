@@ -78,31 +78,28 @@ def load_data(tahun_sheet, bulan_terpilih):
         parsed_events = []
         active_dates = []
 
-        # Mulai baca dari baris ke-5 ke bawah (indeks 4)
         for i in range(4, len(rows)):
             row = rows[i]
-            if len(row) < 6: continue
+            if len(row) < 7: continue
             
-            # SESUAI STRUKTUR EXCEL ANDA:
-            # Kolom C (Index 2) = TANGGAL
-            # Kolom D (Index 3) = SEKOLAH
-            # Kolom E (Index 4) = JUMLAH
-            # Kolom F (Index 5) = KETERANGAN
-            tgl_raw = row[2].strip() if len(row) > 2 else ""  
-            sekolah_raw = row[3].strip() if len(row) > 3 else ""  
-            jumlah_raw = row[4].strip() if len(row) > 4 else ""  
-            ket_raw = row[5].strip() if len(row) > 5 else ""  
+            tgl_raw = row[2].strip() if len(row) > 2 else ""      # C: Tanggal
+            sekolah_raw = row[3].strip() if len(row) > 3 else ""  # D: Sekolah
+            kontak_raw = row[4].strip() if len(row) > 4 else ""   # E: Kontak
+            jumlah_raw = row[5].strip() if len(row) > 5 else ""   # F: Jumlah
+            ket_raw = row[6].strip() if len(row) > 6 else ""      # G: Keterangan
 
             if tgl_raw and "TANGGAL" not in tgl_raw.upper() and "JADWAL" not in tgl_raw.upper():
                 dates_list = parse_date_universal(tgl_raw, int(tahun_sheet), bulan_terpilih)
                 if dates_list:
                     active_dates = dates_list
 
-            if active_dates and sekolah_raw and "SEKOLAH" not in sekolah_raw.upper():
+            # Murni membaca baris apa adanya (tanpa digabung ke atas)
+            if active_dates and (sekolah_raw or kontak_raw or jumlah_raw or ket_raw):
                 for d_item in active_dates:
                     parsed_events.append({
                         "TANGGAL_DATE": d_item,
-                        "SEKOLAH": sekolah_raw,
+                        "SEKOLAH": sekolah_raw if sekolah_raw else "-",
+                        "KONTAK": kontak_raw if kontak_raw else "-",
                         "JUMLAH": jumlah_raw if jumlah_raw else "-",
                         "KETERANGAN": ket_raw if ket_raw else "-"
                     })
@@ -179,7 +176,8 @@ if events_selected:
         detail_html += f"""
         <div style='background: #f8fafc; border-left: 4px solid #0284c7; padding: 10px; margin-bottom: 10px; border-radius: 5px;'>
             <div style='font-size: 14px; font-weight: bold; color: #0284c7;'>🏛️ {ev['SEKOLAH']}</div>
-            <div style='font-size: 12px; margin-top:5px;'>👥 <b>Jumlah/Tiket:</b> {ev['JUMLAH']}</div>
+            <div style='font-size: 12px; margin-top:4px; color: #475569;'>📞 <b>Kontak:</b> {ev['KONTAK']}</div>
+            <div style='font-size: 12px; margin-top:4px;'>👥 <b>Jumlah:</b> {ev['JUMLAH']}</div>
             <div style='font-size: 12px; margin-top:3px; color: #d97706;'>📝 <b>Catatan:</b> {ev['KETERANGAN']}</div>
         </div>"""
 else:
