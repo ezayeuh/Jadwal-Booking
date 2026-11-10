@@ -2,9 +2,7 @@ import streamlit as st
 from datetime import date
 import gspread
 
-# -------------------------------------------------------------
 SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/14XyLKqesumeBBDhPGlko5Iea3a0PG4nyJw-m_eS_BCY/edit" 
-# -------------------------------------------------------------
 
 st.set_page_config(page_title="Portal Staff", page_icon="🔐", layout="wide")
 st.title("🔐 Portal Staff / Admin")
@@ -26,9 +24,6 @@ except Exception as e:
 st.divider()
 kolom_tambah, kolom_hapus = st.columns([1.5, 1])
 
-# ==============================================================
-# 1. FORM TAMBAH JADWAL (DIJAMIN AMAN DI BAWAH)
-# ==============================================================
 with kolom_tambah:
     st.subheader(f"➕ Tambah Jadwal Baru")
     with st.form("form_tambah"):
@@ -44,6 +39,8 @@ with kolom_tambah:
             else:
                 hari_indo = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
                 bulan_indo = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
+                
+                # Format tanggal lengkap agar selalu terbaca mandiri oleh sistem
                 tgl_format = f"{hari_indo[tgl_input.weekday()].upper()}, {tgl_input.day} {bulan_indo[tgl_input.month-1].upper()} {tgl_input.year}"
                 
                 baris_baru = ["", tgl_format, sekolah, jumlah, keterangan]
@@ -51,29 +48,23 @@ with kolom_tambah:
                 try:
                     ws.append_row(baris_baru, value_input_option="USER_ENTERED")
                     st.cache_data.clear()
-                    st.success("✅ Data berhasil disimpan dengan rapi!")
+                    st.success("✅ Data berhasil disimpan secara terpisah dan rapi!")
                     st.rerun()
                 except Exception as e:
                     st.error(f"Gagal menyimpan data: {e}")
 
-# ==============================================================
-# 2. FORM HAPUS JADWAL (DIKUNCI MULAI BARIS 5 KE BAWAH)
-# ==============================================================
 with kolom_hapus:
     st.subheader(f"🗑️ Hapus Jadwal")
     
     semua_baris = ws.get_all_values()
     opsi_hapus = []
     
-    # KUNCI UTAMA: Kita mulai membaca dari indeks ke-4 (artinya Baris 5 di Excel ke bawah)
-    # Ini membuat baris judul "NO, TANGGAL, SEKOLAH" (Baris 4) TIDAK AKAN PERNAH TERBACA ATAU MASUK DROPDOWN!
     for i in range(4, len(semua_baris)):
         row = semua_baris[i]
         if len(row) >= 3:
-            tgl_val = str(row[1]).strip() # Kolom B (Tanggal)
-            sek_val = str(row[2]).strip() # Kolom C (Sekolah)
+            tgl_val = str(row[1]).strip()
+            sek_val = str(row[2]).strip()
             
-            # Hanya masukkan baris yang benar-benar ada isinya
             if tgl_val or sek_val:
                 opsi_hapus.append((i + 1, f"Baris {i + 1} | {tgl_val} - {sek_val}"))
                 
