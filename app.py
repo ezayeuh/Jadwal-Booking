@@ -23,6 +23,18 @@ BULAN_INDO = {
 HARI_INDO = {0: "Senin", 1: "Selasa", 2: "Rabu", 3: "Kamis", 4: "Jumat", 5: "Sabtu", 6: "Minggu"}
 HARI_LIST = ["SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU", "MINGGU"]
 
+# Fungsi untuk mendeteksi tanggal merah / hari libur nasional Indonesia secara otomatis
+def get_libur_nasional(tahun):
+    # Hari libur tetap & estimasi libur nasional umum di Indonesia
+    libur = {
+        date(tahun, 1, 1),   # Tahun Baru Masehi
+        date(tahun, 5, 1),   # Hari Buruh Internasional
+        date(tahun, 6, 1),   # Hari Lahir Pancasila
+        date(tahun, 8, 17),  # Hari Kemerdekaan RI
+        date(tahun, 12, 25), # Hari Raya Natal
+    }
+    return libur
+
 def parse_date_universal(tgl_str, thn_default, bln_default):
     tgl_str = str(tgl_str).upper().strip()
     b_num = None
@@ -93,7 +105,6 @@ def load_data(tahun_sheet, bulan_terpilih):
                 if dates_list:
                     active_dates = dates_list
 
-            # Murni membaca baris apa adanya (tanpa digabung ke atas)
             if active_dates and (sekolah_raw or kontak_raw or jumlah_raw or ket_raw):
                 for d_item in active_dates:
                     parsed_events.append({
@@ -120,6 +131,7 @@ with col2: thn_pilihan = st.selectbox("Tahun", range(2024, 2030), index=range(20
 bln_idx = list(BULAN_INDO.values()).index(bln_pilihan) + 1
 
 jadwal_data = load_data(thn_pilihan, bln_idx)
+hari_libur = get_libur_nasional(thn_pilihan)
 
 events_map = {date(thn_pilihan, bln_idx, d): [] for d in range(1, calendar.monthrange(thn_pilihan, bln_idx)[1] + 1)}
 for item in jadwal_data:
@@ -135,11 +147,17 @@ html_code = """<style>
 .cal-cell { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 5px; height: 65px; text-decoration: none; display: flex; flex-direction: column; cursor: pointer; color: black; }
 .cal-cell:hover { border-color: #0284c7; }
 .cell-booked { background: #e0f2fe; border-color: #0284c7; }
-.cell-selected { border: 2px solid #0f172a; }
+.cell-weekend-holiday { border: 2px solid #ef4444 !important; background: #fef2f2 !important; }
+.cell-selected { border: 2px solid #0f172a !important; box-shadow: 0 0 5px rgba(0,0,0,0.3); }
 .badge-booked { background: #0284c7; color: white; font-size: 10px; padding: 2px; text-align: center; border-radius: 3px; margin-top: auto; }
+.day-num-red { color: #dc2626; font-weight: bold; }
 </style><div class='cal-container'><div class='cal-row'>"""
 
-for h in ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Mgg"]: html_code += f"<div class='cal-th'>{h}</div>"
+for h in ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Mgg"]: 
+    if h in ["Sab", "Mgg"]:
+        html_code += f"<div class='cal-th' style='color: #dc2626;'>{h}</div>"
+    else:
+        html_code += f"<div class='cal-th'>{h}</div>"
 html_code += "</div>"
 
 for week in calendar.monthcalendar(thn_pilihan, bln_idx):
@@ -150,13 +168,23 @@ for week in calendar.monthcalendar(thn_pilihan, bln_idx):
         else:
             c_date = date(thn_pilihan, bln_idx, day)
             jml_ev = len(events_map[c_date])
+            is_weekend = c_date.weekday() >= 5 # Sabtu (5) atau Minggu (6)
+            is_holiday = c_date in hari_libur
             
             cls = "cal-cell"
-            if jml_ev > 0: cls += " cell-booked"
-            if c_date == st.session_state.selected_date: cls += " cell-selected"
+            if jml_ev > 0: 
+                cls += " cell-booked"
             
+            # Berikan border dan warna pembeda merah untuk Sabtu, Minggu, atau Tanggal Merah
+            if is_weekend or is_holiday:
+                cls += " cell-weekend-holiday"
+                
+            if c_date == st.session_state.selected_date: 
+                cls += " cell-selected"
+            
+            num_cls = "day-num-red" if (is_weekend or is_holiday) else ""
             badge = f"<div class='badge-booked'>{jml_ev} Booking</div>" if jml_ev > 0 else ""
-            html_code += f"<a href='#' id='{c_date}' class='{cls}'><b>{day}</b>{badge}</a>"
+            html_code += f"<a href='#' id='{c_date}' class='{cls}'><b class='{num_cls}'>{day}</b>{badge}</a>"
     html_code += "</div>"
 html_code += "</div>"
 
@@ -166,7 +194,7 @@ if clicked_date:
     st.rerun()
 
 sel_date = st.session_state.selected_date
-st.markdown(f"#### 💬 Detail Kunjungan: {HARI_INDO[sel_date.weekday()]}, {sel_date.day} {BULAN_INDO[sel_date.month]} {sel_date.year}")
+st.markdown(f"#### 💬 Detail Kunjungan: {HARI_INDO[sel_date.weekday()]} , {sel_date.day} {BULAN_INDO[sel_date.month]} {sel_date.year}")
 
 events_selected = events_map.get(sel_date, [])
 detail_html = "<div style='background: white; border: 2px solid #0284c7; border-radius: 12px; padding: 15px;'>"
