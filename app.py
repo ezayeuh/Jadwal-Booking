@@ -53,10 +53,11 @@ def parse_indonesian_date(tgl_str, thn_default, bln_default):
             pass
     return None
 
-@st.cache_data(ttl=600)
+# TTL diset pendek (5 detik) agar data baru dari admin langsung muncul tanpa menunggu lama
+@st.cache_data(ttl=5)
 def load_data(tahun_sheet, bulan_terpilih):
     try:
-        df_raw = conn.read(spreadsheet=SPREADSHEET_URL, worksheet=str(tahun_sheet), ttl=600)
+        df_raw = conn.read(spreadsheet=SPREADSHEET_URL, worksheet=str(tahun_sheet), ttl=0)
         if df_raw.empty: return []
 
         data = df_raw.to_dict(orient="records")
@@ -70,13 +71,11 @@ def load_data(tahun_sheet, bulan_terpilih):
             jumlah_raw = row.get(keys[3]) if len(keys) > 3 else None  # Kolom D (Jumlah)
             ket_raw = row.get(keys[4]) if len(keys) > 4 else None  # Kolom E (Keterangan)
 
-            # Jika kolom tanggal terisi, simpan sebagai tanggal aktif baru
             if pd.notna(tgl_raw) and str(tgl_raw).strip() != "" and "TANGGAL" not in str(tgl_raw).upper() and "JADWAL" not in str(tgl_raw).upper():
                 parsed_d = parse_indonesian_date(tgl_raw, int(tahun_sheet), bulan_terpilih)
                 if parsed_d:
                     last_date = parsed_d
 
-            # Jika ada tanggal aktif (baik dari baris itu sendiri maupun meneruskan baris atasnya) DAN ada nama sekolah
             if last_date and pd.notna(sekolah_raw) and str(sekolah_raw).strip() and "SEKOLAH" not in str(sekolah_raw).upper():
                 parsed_events.append({
                     "TANGGAL_DATE": last_date,
@@ -102,10 +101,10 @@ with col1: bln_pilihan = st.selectbox("Bulan", list(BULAN_INDO.values()), index=
 with col2: thn_pilihan = st.selectbox("Tahun", range(2024, 2030), index=range(2024, 2030).index(date.today().year))
 bln_idx = list(BULAN_INDO.values()).index(bln_pilihan) + 1
 
-# LOAD DATA SESUAI TAHUN & BULAN
+# LOAD DATA
 jadwal_data = load_data(thn_pilihan, bln_idx)
 
-# Mapping ke kalender
+# Mapping Event
 events_map = {date(thn_pilihan, bln_idx, d): [] for d in range(1, calendar.monthrange(thn_pilihan, bln_idx)[1] + 1)}
 for item in jadwal_data:
     if item["TANGGAL_DATE"].month == bln_idx and item["TANGGAL_DATE"].year == thn_pilihan:
