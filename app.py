@@ -190,24 +190,24 @@ if clicked_date:
     st.session_state.selected_date = date.fromisoformat(clicked_date)
     st.rerun()
 
+# DETAIL TANGGAL TERPILIH
 sel_date = st.session_state.selected_date
 st.markdown(f"#### 💬 Detail Kunjungan: {HARI_INDO[sel_date.weekday()]}, {sel_date.day} {BULAN_INDO[sel_date.month]} {sel_date.year}")
 
 events_selected = events_map.get(sel_date, [])
-detail_html = "<div style='background: #ffffff; border: 2px solid #0284c7; border-radius: 12px; padding: 15px;'>"
+detail_html = "<div style='background-color: #0f172a; border: 2px solid #0284c7; border-radius: 12px; padding: 15px;'>"
 
 if events_selected:
     for ev in events_selected:
-        # Warna teks dikunci (!important) agar tetap hitam pekat & jelas meski HP memakai Dark Mode
         detail_html += f"""
-        <div style='background: #f8fafc; border-left: 4px solid #0284c7; padding: 12px; margin-bottom: 10px; border-radius: 5px; color: #0f172a !important;'>
-            <div style='font-size: 15px; font-weight: bold; color: #0284c7 !important;'>🏛️ {ev['SEKOLAH']}</div>
-            <div style='font-size: 13px; margin-top:6px; color: #0f172a !important;'>📞 <b>Kontak:</b> {ev['KONTAK']}</div>
-            <div style='font-size: 13px; margin-top:4px; color: #0f172a !important;'>👥 <b>Jumlah:</b> {ev['JUMLAH']}</div>
-            <div style='font-size: 13px; margin-top:4px; color: #b45309 !important;'>📝 <b>Catatan:</b> {ev['KETERANGAN']}</div>
+        <div style='background-color: #1e293b; border-left: 4px solid #38bdf8; padding: 12px; margin-bottom: 10px; border-radius: 6px;'>
+            <div style='font-size: 15px; font-weight: bold; color: #38bdf8;'>🏛️ {ev['SEKOLAH']}</div>
+            <div style='font-size: 13px; margin-top:6px; color: #f8fafc;'>📞 <b style='color: #cbd5e1;'>Kontak:</b> {ev['KONTAK']}</div>
+            <div style='font-size: 13px; margin-top:4px; color: #f8fafc;'>👥 <b style='color: #cbd5e1;'>Jumlah:</b> {ev['JUMLAH']}</div>
+            <div style='font-size: 13px; margin-top:4px; color: #fbbf24;'>📝 <b style='color: #fde68a;'>Catatan:</b> {ev['KETERANGAN']}</div>
         </div>"""
 else:
-    detail_html += "<div style='text-align: center; color: #475569 !important;'>🏖️ Kosong. Belum ada jadwal pada tanggal ini.</div>"
+    detail_html += "<div style='text-align: center; color: #94a3b8; padding: 10px;'>🏖️ Kosong. Belum ada jadwal pada tanggal ini.</div>"
 
 detail_html += "</div>"
 st.markdown(detail_html, unsafe_allow_html=True)
