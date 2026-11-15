@@ -23,9 +23,7 @@ BULAN_INDO = {
 HARI_INDO = {0: "Senin", 1: "Selasa", 2: "Rabu", 3: "Kamis", 4: "Jumat", 5: "Sabtu", 6: "Minggu"}
 HARI_LIST = ["SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU", "MINGGU"]
 
-# Fungsi untuk mendeteksi tanggal merah / hari libur nasional Indonesia secara otomatis
 def get_libur_nasional(tahun):
-    # Hari libur tetap & estimasi libur nasional umum di Indonesia
     libur = {
         date(tahun, 1, 1),   # Tahun Baru Masehi
         date(tahun, 5, 1),   # Hari Buruh Internasional
@@ -143,19 +141,19 @@ calendar.setfirstweekday(calendar.MONDAY)
 html_code = """<style>
 .cal-container { background: white; border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px; }
 .cal-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-bottom: 5px; }
-.cal-th { text-align: center; font-weight: bold; font-size: 13px; }
-.cal-cell { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 5px; height: 65px; text-decoration: none; display: flex; flex-direction: column; cursor: pointer; color: black; }
+.cal-th { text-align: center; font-weight: bold; font-size: 13px; color: #0f172a; }
+.cal-cell { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 5px; height: 65px; text-decoration: none; display: flex; flex-direction: column; cursor: pointer; color: #0f172a !important; }
 .cal-cell:hover { border-color: #0284c7; }
 .cell-booked { background: #e0f2fe; border-color: #0284c7; }
 .cell-weekend-holiday { border: 2px solid #ef4444 !important; background: #fef2f2 !important; }
 .cell-selected { border: 2px solid #0f172a !important; box-shadow: 0 0 5px rgba(0,0,0,0.3); }
-.badge-booked { background: #0284c7; color: white; font-size: 10px; padding: 2px; text-align: center; border-radius: 3px; margin-top: auto; }
-.day-num-red { color: #dc2626; font-weight: bold; }
+.badge-booked { background: #0284c7; color: white !important; font-size: 10px; padding: 2px; text-align: center; border-radius: 3px; margin-top: auto; }
+.day-num-red { color: #dc2626 !important; font-weight: bold; }
 </style><div class='cal-container'><div class='cal-row'>"""
 
 for h in ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Mgg"]: 
     if h in ["Sab", "Mgg"]:
-        html_code += f"<div class='cal-th' style='color: #dc2626;'>{h}</div>"
+        html_code += f"<div class='cal-th' style='color: #dc2626 !important;'>{h}</div>"
     else:
         html_code += f"<div class='cal-th'>{h}</div>"
 html_code += "</div>"
@@ -168,14 +166,13 @@ for week in calendar.monthcalendar(thn_pilihan, bln_idx):
         else:
             c_date = date(thn_pilihan, bln_idx, day)
             jml_ev = len(events_map[c_date])
-            is_weekend = c_date.weekday() >= 5 # Sabtu (5) atau Minggu (6)
+            is_weekend = c_date.weekday() >= 5
             is_holiday = c_date in hari_libur
             
             cls = "cal-cell"
             if jml_ev > 0: 
                 cls += " cell-booked"
             
-            # Berikan border dan warna pembeda merah untuk Sabtu, Minggu, atau Tanggal Merah
             if is_weekend or is_holiday:
                 cls += " cell-weekend-holiday"
                 
@@ -194,22 +191,23 @@ if clicked_date:
     st.rerun()
 
 sel_date = st.session_state.selected_date
-st.markdown(f"#### 💬 Detail Kunjungan: {HARI_INDO[sel_date.weekday()]} , {sel_date.day} {BULAN_INDO[sel_date.month]} {sel_date.year}")
+st.markdown(f"#### 💬 Detail Kunjungan: {HARI_INDO[sel_date.weekday()]}, {sel_date.day} {BULAN_INDO[sel_date.month]} {sel_date.year}")
 
 events_selected = events_map.get(sel_date, [])
-detail_html = "<div style='background: white; border: 2px solid #0284c7; border-radius: 12px; padding: 15px;'>"
+detail_html = "<div style='background: #ffffff; border: 2px solid #0284c7; border-radius: 12px; padding: 15px;'>"
 
 if events_selected:
     for ev in events_selected:
+        # Warna teks dikunci (!important) agar tetap hitam pekat & jelas meski HP memakai Dark Mode
         detail_html += f"""
-        <div style='background: #f8fafc; border-left: 4px solid #0284c7; padding: 10px; margin-bottom: 10px; border-radius: 5px;'>
-            <div style='font-size: 14px; font-weight: bold; color: #0284c7;'>🏛️ {ev['SEKOLAH']}</div>
-            <div style='font-size: 12px; margin-top:4px; color: #475569;'>📞 <b>Kontak:</b> {ev['KONTAK']}</div>
-            <div style='font-size: 12px; margin-top:4px;'>👥 <b>Jumlah:</b> {ev['JUMLAH']}</div>
-            <div style='font-size: 12px; margin-top:3px; color: #d97706;'>📝 <b>Catatan:</b> {ev['KETERANGAN']}</div>
+        <div style='background: #f8fafc; border-left: 4px solid #0284c7; padding: 12px; margin-bottom: 10px; border-radius: 5px; color: #0f172a !important;'>
+            <div style='font-size: 15px; font-weight: bold; color: #0284c7 !important;'>🏛️ {ev['SEKOLAH']}</div>
+            <div style='font-size: 13px; margin-top:6px; color: #0f172a !important;'>📞 <b>Kontak:</b> {ev['KONTAK']}</div>
+            <div style='font-size: 13px; margin-top:4px; color: #0f172a !important;'>👥 <b>Jumlah:</b> {ev['JUMLAH']}</div>
+            <div style='font-size: 13px; margin-top:4px; color: #b45309 !important;'>📝 <b>Catatan:</b> {ev['KETERANGAN']}</div>
         </div>"""
 else:
-    detail_html += "<div style='text-align: center; color: #64748b;'>🏖️ Kosong. Belum ada jadwal pada tanggal ini.</div>"
+    detail_html += "<div style='text-align: center; color: #475569 !important;'>🏖️ Kosong. Belum ada jadwal pada tanggal ini.</div>"
 
 detail_html += "</div>"
 st.markdown(detail_html, unsafe_allow_html=True)
